@@ -13,6 +13,7 @@ import Attendance from './pages/Attendance.jsx';
 import Academics from './pages/Academics.jsx';
 import RiskMonitoring from './pages/RiskMonitoring.jsx';
 import Interventions from './pages/Interventions.jsx';
+import NotFound from './pages/NotFound.jsx';
 
 export default function App() {
   return (
@@ -31,10 +32,9 @@ export default function App() {
           <Route path="academics" element={<Academics />} />
           <Route path="risk" element={<RiskMonitoring />} />
           <Route path="interventions" element={<Interventions />} />
+          {/* Catch-all Not Found inside layout */}
+          <Route path="*" element={<NotFound />} />
         </Route>
-
-        {/* Fallback Catch-all: Redirect unknown routes back to /dashboard */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

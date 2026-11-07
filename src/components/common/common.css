@@ -486,3 +486,28 @@
   color: var(--color-text-secondary);
 }
 
+/* Mobile Responsiveness for Form and Common Components */
+@media (max-width: 640px) {
+  .search-input-wrapper {
+    min-width: 100%;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+
+  .modal-content {
+    max-width: 95vw;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-header,
+  .modal-footer {
+    padding: 12px 16px;
+  }
+}
+
+
