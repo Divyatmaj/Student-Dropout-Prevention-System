@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Clock, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle2, XCircle, FileText } from 'lucide-react';
 
 export default function Badge({ type = 'risk', value, children }) {
   const normalized = (value || children || '').toString().toLowerCase().replace(' ', '_');
@@ -21,6 +21,32 @@ export default function Badge({ type = 'risk', value, children }) {
 
     return (
       <span className={`badge badge-risk-${normalized}`}>
+        {icon}
+        <span>{label}</span>
+      </span>
+    );
+  }
+
+  if (type === 'attendance') {
+    let icon = null;
+    let label = value || children;
+
+    if (normalized === 'present') {
+      icon = <CheckCircle2 size={12} />;
+      label = 'Present';
+    } else if (normalized === 'absent') {
+      icon = <XCircle size={12} />;
+      label = 'Absent';
+    } else if (normalized === 'late') {
+      icon = <Clock size={12} />;
+      label = 'Late';
+    } else if (normalized === 'excused') {
+      icon = <FileText size={12} />;
+      label = 'Excused';
+    }
+
+    return (
+      <span className={`badge badge-attendance-${normalized}`}>
         {icon}
         <span>{label}</span>
       </span>

@@ -141,6 +141,31 @@
   color: var(--color-text-secondary);
 }
 
+/* Attendance Status Badges */
+.badge-attendance-present {
+  background-color: var(--color-risk-low-subtle);
+  color: var(--color-risk-low);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+}
+
+.badge-attendance-absent {
+  background-color: var(--color-risk-high-subtle);
+  color: var(--color-risk-high);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.badge-attendance-late {
+  background-color: var(--color-risk-medium-subtle);
+  color: var(--color-risk-medium);
+  border: 1px solid rgba(234, 88, 12, 0.2);
+}
+
+.badge-attendance-excused {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
 /* Cards */
 .card {
   background-color: var(--color-bg-surface);
