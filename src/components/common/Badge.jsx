@@ -69,5 +69,27 @@ export default function Badge({ type = 'risk', value, children }) {
     );
   }
 
+  if (type === 'result' || type === 'assessment') {
+    const isPass = normalized === 'pass';
+    return (
+      <span className={`badge ${isPass ? 'badge-risk-low' : 'badge-risk-high'}`}>
+        {isPass ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+        <span>{isPass ? 'Pass' : 'Fail'}</span>
+      </span>
+    );
+  }
+
+  if (type === 'difficulty') {
+    let diffClass = 'badge-risk-low';
+    if (normalized === 'high') diffClass = 'badge-risk-high';
+    if (normalized === 'moderate') diffClass = 'badge-risk-medium';
+
+    return (
+      <span className={`badge ${diffClass}`}>
+        <span>{children || value}</span>
+      </span>
+    );
+  }
+
   return <span className="badge">{children || value}</span>;
 }
