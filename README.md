@@ -45,22 +45,27 @@ entirely on local mock data, so the API is not required.
 
 ### Running the API
 
-The API needs a PostgreSQL database. [Neon](https://neon.tech) (free tier) is the
-simplest option, and the same database works for local development and Vercel.
+The API needs a PostgreSQL database. This project uses [Neon](https://neon.com)
+(Lakebase Postgres) and the Neon CLI (`npm i -g neon`).
 
-1. Create a Neon project and a database named `udaan`.
-2. From **Connect**, copy two connection strings: the **pooled** one (host contains
-   `-pooler`) and the **direct** one.
-3. `cp server/.env.example server/.env` and set `DATABASE_URL` to the pooled string and
-   `DIRECT_URL` to the direct string.
-4. Create the tables: `npm run db:deploy`
-5. Start both apps: `npm run dev` (API on http://localhost:5000, web app on
+1. Sign in and link this folder to the Neon project (once):
+   `neon login`, then `neon link` (writes the git-ignored `.neon` file).
+2. Pull the connection strings: `neon env pull` (or `neon deploy`, which also applies
+   `neon.ts`). This writes `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct)
+   into the git-ignored `.env.local`, which the API and Prisma read automatically.
+3. Create the tables: `npm run db:deploy` (uses the direct connection).
+4. Start both apps: `npm run dev` (API on http://localhost:5000, web app on
    http://localhost:3000; the web app proxies `/api` to the API).
-6. Check the connection: http://localhost:3000/api/v1/health/db should return
-   `{"success":true,"data":{"database":"ok",...}}`.
+5. Check the connection: http://localhost:3000/api/v1/health/db should return
+   `"database":"ok"` and the latest migration name.
 
-A local PostgreSQL also works — put the same URL in `DATABASE_URL` and leave
-`DIRECT_URL` empty.
+Without the Neon CLI, copy both connection strings from the Neon console into
+`server/.env` (see `server/.env.example`). A local PostgreSQL also works: set only
+`DATABASE_URL`.
+
+`neon.ts` declares the Neon services for each branch (only Postgres for now). New
+non-default branches expire after 7 days, which suits per-feature branches created with
+`neon checkout <name> --create`.
 
 ### Scripts (run from the repo root)
 
@@ -152,7 +157,7 @@ All use the password `Udaan@123`.
 | `VITE_DEV_API_PROXY` | client  | Local API URL the dev server proxies `/api` to                 |
 | `VITE_USE_MOCKS`     | client  | `true` to use local mock data instead of the API               |
 | `DATABASE_URL`       | server  | PostgreSQL connection used by the API (Neon: pooled string)    |
-| `DIRECT_URL`         | server  | Connection used for migrations (Neon: direct string)           |
+| `DATABASE_URL_UNPOOLED` | server | Direct connection used only for migrations (Neon)            |
 | `PORT`               | server  | Local API port (default `5000`)                                |
 | `CORS_ORIGINS`       | server  | Only if the web app runs on another origin (comma-separated)   |
 | `DB_POOL_MAX`        | server  | Connections per API instance (default `5`)                     |
@@ -164,6 +169,8 @@ All use the password `Udaan@123`.
    deploys `api/index.js` (the Express app) as a serverless function for `/api/*`.
 3. Add `DATABASE_URL` (Neon pooled string) in **Project → Settings → Environment
    Variables**, and run `npm run db:deploy` from your machine to apply migrations.
+   The API registers its connection pool with `attachDatabasePool` from
+   `@vercel/functions`, so idle connections are closed cleanly between requests.
    The full production checklist is added in a later step.
 
 ## Privacy note

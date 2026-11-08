@@ -1,16 +1,17 @@
 /**
  * Prisma 7 CLI configuration (migrate, generate, studio).
  *
- * The CLI connects with DIRECT_URL when it is set. On Neon, use the direct
- * (non-pooled) connection string there, because migrations need a session
- * that PgBouncer's transaction pooling does not provide. The running API
- * uses DATABASE_URL (the pooled string) through the pg driver adapter; see
- * src/config/prisma.js.
+ * Migrations use DATABASE_URL_UNPOOLED, Neon's direct (non-pooled)
+ * connection: Prisma Migrate needs session features that PgBouncer's
+ * transaction pooling does not provide. Without it (e.g. a local Postgres)
+ * the CLI falls back to DATABASE_URL. The running API always uses the pooled
+ * DATABASE_URL — see src/config/prisma.js.
  */
-import dotenv from 'dotenv';
 import { defineConfig } from 'prisma/config';
 
-dotenv.config({ quiet: true });
+import { loadEnvFiles } from './src/config/loadEnv.js';
+
+loadEnvFiles();
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -18,6 +19,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: process.env.DIRECT_URL || process.env.DATABASE_URL,
+    url: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL,
   },
 });

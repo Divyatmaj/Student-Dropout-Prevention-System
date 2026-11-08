@@ -1,17 +1,41 @@
 /**
  * One Prisma Client per process, created on first use.
  *
- * Prisma 7 connects through a driver adapter; here the node-postgres
- * adapter with a small pool. On Vercel each function instance keeps its own
- * pool, so point DATABASE_URL at Neon's pooled (PgBouncer) endpoint.
+ * Prisma 7 connects through a driver adapter. Following Neon's guidance for
+ * Vercel, this uses node-postgres (`pg`) with a small pool over Neon's pooled
+ * (-pooler) DATABASE_URL, and registers the pool with Vercel's
+ * attachDatabasePool so idle connections are released before a Fluid compute
+ * instance is suspended. Outside Vercel that call does nothing.
  */
+import pg from 'pg';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { attachDatabasePool } from '@vercel/functions';
 
 import { env } from './env.js';
 import { AppError } from '../utils/AppError.js';
 
 const globalForPrisma = globalThis;
+
+/**
+ * Neon connection strings use `sslmode=require`. node-postgres currently
+ * treats that as full certificate verification but will switch to weaker
+ * libpq semantics in pg v9, so pin today's behaviour explicitly. Strings that
+ * opt into libpq semantics (`uselibpqcompat=true`) are left alone.
+ */
+export function withVerifiedSsl(connectionString) {
+  let url;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    return connectionString;
+  }
+  const mode = url.searchParams.get('sslmode');
+  if (url.searchParams.get('uselibpqcompat') !== 'true' && ['prefer', 'require', 'verify-ca'].includes(mode)) {
+    url.searchParams.set('sslmode', 'verify-full');
+  }
+  return url.toString();
+}
 
 export function isDatabaseConfigured() {
   return Boolean(env.DATABASE_URL);
@@ -27,12 +51,17 @@ export function getPrisma() {
     });
   }
   if (!globalForPrisma.__udaanPrisma) {
-    const adapter = new PrismaPg({
-      connectionString: env.DATABASE_URL,
+    const pool = new pg.Pool({
+      connectionString: withVerifiedSsl(env.DATABASE_URL),
       max: env.DB_POOL_MAX,
       connectionTimeoutMillis: 10_000,
       idleTimeoutMillis: 30_000,
     });
+    // An idle client that loses its connection must not crash the process.
+    pool.on('error', (err) => console.error('[udaan-api] idle database connection error:', err.message));
+    attachDatabasePool(pool);
+
+    const adapter = new PrismaPg(pool);
     globalForPrisma.__udaanPrisma = new PrismaClient({
       adapter,
       log: env.isProduction || env.isTest ? ['error'] : ['warn', 'error'],

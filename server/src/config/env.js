@@ -1,15 +1,17 @@
 /**
  * Environment configuration, validated once at startup.
  *
- * Locally, values come from server/.env. On Vercel they come from the
+ * Locally, values come from the env files listed in loadEnv.js (Neon writes
+ * DATABASE_URL into the repo's .env.local). On Vercel they come from the
  * project's environment variables. A missing DATABASE_URL does not crash
  * the API: health checks still answer and data routes return 503
  * DATABASE_NOT_CONFIGURED, which is easier to diagnose on a serverless host.
  */
-import dotenv from 'dotenv';
 import { z } from 'zod';
 
-dotenv.config({ quiet: true });
+import { loadEnvFiles } from './loadEnv.js';
+
+loadEnvFiles();
 
 const optionalString = z
   .string()
