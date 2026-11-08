@@ -25,6 +25,8 @@ const ALL_STAFF = [SCHOOL_ADMIN, PRINCIPAL, TEACHER];
 const PERMISSION_ROLES = {
   // Viewing (teachers see only their assigned students — enforced by the API)
   DASHBOARD_VIEW: ALL_STAFF,
+  DASHBOARD_SCHOOL_VIEW: [SCHOOL_ADMIN, PRINCIPAL], // whole-school figures
+  DASHBOARD_TEACHER_VIEW: [TEACHER], // assigned-student figures
   STUDENTS_VIEW: ALL_STAFF,
   ATTENDANCE_VIEW: ALL_STAFF,
   ACADEMICS_VIEW: ALL_STAFF,

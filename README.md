@@ -56,8 +56,8 @@ The API needs a PostgreSQL database. This project uses [Neon](https://neon.com)
 3. Create the tables: `npm run db:deploy` (uses the direct connection).
 4. Set a token-signing secret in `server/.env` (git-ignored):
    `echo "JWT_SECRET=\"$(openssl rand -base64 48)\"" > server/.env`
-5. Add the demo school, staff, students, attendance, assessments and marks:
-   `npm run db:seed` (safe to re-run; it only adds what is missing).
+5. Add the demo school, staff, students, attendance, assessments, marks and
+   interventions: `npm run db:seed` (safe to re-run; it only adds what is missing).
 6. Start both apps: `npm run dev` (API on http://localhost:5000, web app on
    http://localhost:3000; the web app proxies `/api` to the API).
 7. Check the connection: http://localhost:3000/api/v1/health/db should return
@@ -83,7 +83,7 @@ non-default branches expire after 7 days, which suits per-feature branches creat
 | `npm run db:migrate` | Create a migration after editing `schema.prisma` (dev DB) |
 | `npm run db:deploy`  | Apply pending migrations to the database                  |
 | `npm run db:status`  | Show which migrations have been applied                   |
-| `npm run db:seed`    | Add the demo school, staff and student records            |
+| `npm run db:seed`    | Add the demo school, staff, records and interventions     |
 | `npm run db:studio`  | Browse the database in Prisma Studio                      |
 
 API tests run without a database. To also run the database tests, point
@@ -129,6 +129,9 @@ empty it first), migrated with `npm run db:deploy`:
 | Attendance | `GET /attendance`, `GET /attendance/overview`, `GET /attendance/register`, `GET /attendance/student/:studentId`, `POST /attendance`, `POST /attendance/bulk`, `PATCH /attendance/:id`, `DELETE /attendance/:id` |
 | Assessments | `GET/POST /assessments`, `GET /assessments/overview`, `GET/PATCH/DELETE /assessments/:id` |
 | Marks | `POST /marks`, `POST /marks/bulk`, `PATCH /marks/:id`, `DELETE /marks/:id` |
+| Risk | `GET /risk`, `GET /risk/overview`, `GET /risk/:studentId`, `POST /risk/recalculate/:studentId`, `POST /risk/recalculate` (admin, principal), `POST /risk/:studentId/review` |
+| Interventions | `GET/POST /interventions`, `GET /interventions/overview`, `GET/PATCH /interventions/:id`, `PATCH /interventions/:id/status` |
+| Dashboard | `GET /dashboard/overview` (admin, principal), `GET /dashboard/teacher` (teacher), `GET /dashboard/attention` |
 
 - One attendance record per student per day, and one mark per student per assessment
   (`409` on duplicates). The bulk endpoints save a whole register or marks sheet at once:
@@ -141,6 +144,12 @@ empty it first), migrated with `npm run db:deploy`:
   recalculates that student's risk indicator straight away.
 - "Today" (for future-date checks and overdue follow-ups) is the school's date, set by
   `SCHOOL_TIMEZONE` (default `Asia/Kolkata`).
+- An intervention becomes overdue at midnight without anyone touching it, so whenever
+  risk is read (risk list, overview, dashboard) the API first recalculates any score that
+  was last calculated before today.
+- Interventions are never deleted: they are completed (with an outcome) or cancelled
+  (with a reason). Teachers see interventions for their students plus any they created
+  or own.
 
 ## Attendance policy
 

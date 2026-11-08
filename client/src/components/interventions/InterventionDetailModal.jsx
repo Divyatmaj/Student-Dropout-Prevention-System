@@ -126,7 +126,9 @@ export default function InterventionDetailModal({ interventionId, onClose, onCha
             <Badge type="status" value={item.status} />
             <Badge type="priority" value={item.priority} />
             {item.isOverdue && <Badge type="overdue">Overdue by {item.daysOverdue} day{item.daysOverdue === 1 ? '' : 's'}</Badge>}
-            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginLeft: 'auto' }}>{item.id}</span>
+            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginLeft: 'auto' }} title={item.id}>
+              {/^[0-9a-f-]{36}$/i.test(item.id) ? `#${item.id.slice(0, 8)}` : item.id}
+            </span>
           </div>
 
           <div className="detail-grid">

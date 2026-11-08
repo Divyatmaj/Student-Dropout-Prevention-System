@@ -23,7 +23,12 @@ export const INTERVENTION_TRANSITIONS = Object.freeze({
   CANCELLED: ['OPEN'], // reopen
 });
 
-const dateKey = (value) => (value ? String(value).slice(0, 10) : null);
+/** "YYYY-MM-DD" from a date string or a Date (DATE columns arrive as UTC-midnight Dates). */
+function dateKey(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
 
 export function isInterventionOpen(intervention) {
   return OPEN_INTERVENTION_STATUSES.includes(intervention?.status);

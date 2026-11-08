@@ -23,6 +23,12 @@ describe('isInterventionOverdue', () => {
     expect(isInterventionOverdue({ status: 'CANCELLED', dueDate: '2026-10-01' }, TODAY)).toBe(false);
   });
 
+  it('accepts Date objects, as the database returns them', () => {
+    expect(isInterventionOverdue({ status: 'OPEN', dueDate: new Date('2026-11-06T00:00:00Z') }, TODAY)).toBe(true);
+    expect(isInterventionOverdue({ status: 'OPEN', dueDate: new Date('2026-11-08T00:00:00Z') }, TODAY)).toBe(false);
+    expect(daysOverdue({ status: 'OPEN', dueDate: new Date('2026-11-01T00:00:00Z') }, TODAY)).toBe(7);
+  });
+
   it('is not overdue without a due date', () => {
     expect(isInterventionOverdue({ status: 'OPEN', dueDate: null }, TODAY)).toBe(false);
   });

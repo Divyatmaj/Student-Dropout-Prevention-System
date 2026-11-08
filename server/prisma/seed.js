@@ -1,6 +1,7 @@
 /**
  * Seed the Udaan demo school: staff accounts, students, attendance,
- * assessments and marks, then calculate every student's risk indicator.
+ * assessments, marks and interventions, then calculate every student's risk
+ * indicator and add one example review.
  *
  *   npm run db:seed                         (from the repo root)
  *
@@ -23,6 +24,14 @@ import { recalculateMany } from '../src/services/risk.service.js';
 import { mockStudentsList } from '../../client/src/data/mockStudentsData.js';
 import { mockAttendanceRecords } from '../../client/src/data/mockAttendanceData.js';
 import { mockAssessments, mockMarks } from '../../client/src/data/mockAcademicsData.js';
+import { mockInterventionsList } from '../../client/src/data/mockInterventionsData.js';
+
+/** The example review shown in mock mode (Vikram's flag, reviewed by the principal). */
+const DEMO_REVIEW = {
+  studentCode: 'UDN-0305',
+  reviewerMockId: 'USR-002',
+  note: 'Spoke with father. Agreed Vikram will not work at the shop on school mornings; class teacher to check in weekly.',
+};
 
 export const DEMO_PASSWORD = 'Udaan@123';
 
@@ -68,8 +77,69 @@ async function main() {
   console.log(`Demo password for new accounts: ${DEMO_PASSWORD}${resetPasswords ? ' (all demo passwords reset)' : ''}`);
 
   const studentIds = await seedRecords(prisma, school, userIds);
+  await seedInterventions(prisma, school, userIds, studentIds);
   await recalculateMany([...studentIds.values()]);
   console.log(`Risk indicators calculated for ${studentIds.size} students.`);
+  await seedReview(prisma, school, userIds);
+}
+
+/** Interventions with their history, matched on student + creation time. */
+async function seedInterventions(prisma, school, userIds, studentIds) {
+  const staffId = (mockId) => userIds.get(mockId) ?? userIds.get('USR-001');
+  let created = 0;
+  for (const i of mockInterventionsList) {
+    const studentId = studentIds.get(i.studentId);
+    const createdAt = new Date(i.createdAt);
+    const exists = await prisma.intervention.findFirst({ where: { studentId, createdAt }, select: { id: true } });
+    if (exists) continue;
+    await prisma.intervention.create({
+      data: {
+        schoolId: school.id,
+        studentId,
+        createdById: staffId(i.createdById),
+        assignedToId: staffId(i.assignedToId),
+        category: i.category,
+        priority: i.priority,
+        status: i.status,
+        description: i.description,
+        actionPlan: i.actionPlan,
+        outcome: i.outcome,
+        dueDate: toDbDate(i.dueDate),
+        followUpDate: toDbDate(i.followUpDate),
+        riskSnapshot: i.riskSnapshot ?? undefined,
+        createdAt,
+        updatedAt: new Date(i.updatedAt),
+        history: {
+          create: i.history.map((e) => ({
+            actorId: staffId(e.byId),
+            type: e.type,
+            fromStatus: e.fromStatus ?? null,
+            toStatus: e.toStatus ?? null,
+            fields: e.fields ?? undefined,
+            note: e.note ?? null,
+            createdAt: new Date(e.at),
+          })),
+        },
+      },
+    });
+    created += 1;
+  }
+  console.log(`Interventions added: ${created} of ${mockInterventionsList.length}`);
+}
+
+/** Mark the demo flag as reviewed, unless someone has reviewed it already. */
+async function seedReview(prisma, school, userIds) {
+  const student = await prisma.student.findFirst({
+    where: { schoolId: school.id, studentCode: DEMO_REVIEW.studentCode },
+    select: { riskAssessment: { select: { id: true, reviewedAt: true } } },
+  });
+  const assessment = student?.riskAssessment;
+  if (!assessment || assessment.reviewedAt) return;
+  await prisma.riskAssessment.update({
+    where: { id: assessment.id },
+    data: { reviewedAt: new Date(), reviewedById: userIds.get(DEMO_REVIEW.reviewerMockId), reviewNote: DEMO_REVIEW.note },
+  });
+  console.log('Example review added.');
 }
 
 /** Students, attendance, assessments and marks from the shared demo data. */
