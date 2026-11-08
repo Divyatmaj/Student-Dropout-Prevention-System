@@ -6,28 +6,24 @@ Udaan helps school staff notice early warning signs (attendance, academic
 decline, reported barriers), understand **why** a student was flagged through a
 transparent rule-based score, and track human-led interventions to completion.
 
-- Product requirements: [`docs/PRD.md`](docs/PRD.md)
-- Roadmap: [`docs/PROJECT_ROADMAP.md`](docs/PROJECT_ROADMAP.md)
-
 ## Repository layout
 
 ```
 .
-├── client/          React 18 + Vite frontend
-├── server/          Express + Prisma 7 + PostgreSQL API        (coming soon)
+├── client/          Udaan web app (React 18 + Vite)
+├── server/          Udaan API (Express + Prisma 7 + PostgreSQL)      (coming soon)
 ├── shared/          Code shared by client and server, e.g. risk calculator (coming soon)
-├── api/             Vercel serverless entry that exposes the Express app (coming soon)
-├── docs/            PRD and roadmap
+├── api/             Vercel serverless entry that exposes the Udaan API (coming soon)
 ├── vercel.json      Single Vercel project: static frontend + /api function
 └── package.json     npm workspaces root
 ```
 
-The frontend and backend deploy as **one Vercel project on one domain**:
+The Udaan web app and API deploy as **one Vercel project on one domain**:
 
-| Request          | Served by                                   |
-| ---------------- | ------------------------------------------- |
-| `/api/v1/*`      | Express app running as a Vercel function    |
-| everything else  | `client/dist` (React SPA, `index.html` fallback) |
+| Request          | Served by                                         |
+| ---------------- | ------------------------------------------------- |
+| `/api/v1/*`      | Udaan API running as a Vercel function            |
+| everything else  | `client/dist` (React SPA, `index.html` fallback)  |
 
 Because both live on the same origin, the frontend always calls relative
 `/api/v1/...` URLs and no CORS configuration is needed in production. During
@@ -41,17 +37,17 @@ Requirements: Node.js 20+ and npm 10+.
 ```bash
 npm install                      # installs all workspaces from the repo root
 cp client/.env.example client/.env.local
-npm run dev                      # frontend on http://localhost:3000
+npm run dev                      # Udaan web app on http://localhost:3000
 ```
 
-With `VITE_USE_MOCKS=true` (the default in `.env.example`) the frontend runs
-entirely on local mock data, so no backend is required yet.
+With `VITE_USE_MOCKS=true` (the default in `.env.example`) the web app runs
+entirely on local mock data, so the API is not required yet.
 
 ### Scripts (run from the repo root)
 
 | Command           | What it does                         |
 | ----------------- | ------------------------------------ |
-| `npm run dev`     | Start the frontend dev server        |
+| `npm run dev`     | Start the web app dev server         |
 | `npm run build`   | Production build into `client/dist`  |
 | `npm run preview` | Preview the production build         |
 
