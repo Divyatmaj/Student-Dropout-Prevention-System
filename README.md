@@ -54,9 +54,12 @@ The API needs a PostgreSQL database. This project uses [Neon](https://neon.com)
    `neon.ts`). This writes `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct)
    into the git-ignored `.env.local`, which the API and Prisma read automatically.
 3. Create the tables: `npm run db:deploy` (uses the direct connection).
-4. Start both apps: `npm run dev` (API on http://localhost:5000, web app on
+4. Set a token-signing secret in `server/.env` (git-ignored):
+   `echo "JWT_SECRET=\"$(openssl rand -base64 48)\"" > server/.env`
+5. Add the demo school and staff accounts: `npm run db:seed` (safe to re-run).
+6. Start both apps: `npm run dev` (API on http://localhost:5000, web app on
    http://localhost:3000; the web app proxies `/api` to the API).
-5. Check the connection: http://localhost:3000/api/v1/health/db should return
+7. Check the connection: http://localhost:3000/api/v1/health/db should return
    `"database":"ok"` and the latest migration name.
 
 Without the Neon CLI, copy both connection strings from the Neon console into
@@ -79,11 +82,13 @@ non-default branches expire after 7 days, which suits per-feature branches creat
 | `npm run db:migrate` | Create a migration after editing `schema.prisma` (dev DB) |
 | `npm run db:deploy`  | Apply pending migrations to the database                  |
 | `npm run db:status`  | Show which migrations have been applied                   |
+| `npm run db:seed`    | Add or update the demo school and staff accounts          |
 | `npm run db:studio`  | Browse the database in Prisma Studio                      |
 
 API tests run without a database. To also run the database tests, point
-`TEST_DATABASE_URL` at a disposable database (migrated with `npm run db:deploy`):
-`TEST_DATABASE_URL=postgresql://... npm test -w server`.
+`TEST_DATABASE_URL` at a disposable database whose name contains `test` (the tests
+empty it first), migrated with `npm run db:deploy`:
+`TEST_DATABASE_URL=postgresql://.../udaan_test npm test -w server`.
 
 ### API conventions
 
@@ -92,6 +97,24 @@ API tests run without a database. To also run the database tests, point
   with 400 (malformed), 401, 403, 404, 409 (duplicate/conflict), 422 (validation),
   413 (body over 100 kB) and 503 (database unavailable).
 - `GET /api/v1/health` checks the API; `GET /api/v1/health/db` checks the database.
+
+### Sign-in and access
+
+- `POST /api/v1/auth/login` returns a signed JWT (8 hours by default) and the user;
+  send it as `Authorization: Bearer <token>`. `GET /api/v1/auth/me` returns the
+  current user.
+- Passwords are stored only as bcrypt hashes. A wrong password, an unknown email and a
+  deactivated account all get the same `401 Invalid email or password`, and failed
+  attempts are limited to 10 per email and IP in 15 minutes (`429`).
+- Every request reloads the user, so deactivating an account or changing a role takes
+  effect immediately.
+- Roles: **school administrator** (everything, including staff accounts), **principal**
+  (school-wide view, enrolment, cannot manage staff), **teacher** (attendance, marks,
+  interventions). The same permission table (`shared/src/permissions.js`) drives the
+  web app's menus and the API's checks.
+- Every query is limited to the user's own school: another school's ids return `404`.
+- There is no public sign-up. School admins create staff accounts on the Staff page
+  (`/api/v1/users`).
 
 ## Attendance policy
 
@@ -137,9 +160,10 @@ An intervention is a support action for one student with a concern category
 - Only the creator, the owner, a principal or a school admin can change an intervention.
 - Dashboards show who and when, never the concern text or notes.
 
-## Demo accounts (mock mode)
+## Demo accounts
 
-All use the password `Udaan@123`.
+Created by `npm run db:seed` (and built into mock mode). All use the password
+`Udaan@123` — it is public, so only use the seed on a demo database.
 
 | Email | Role |
 | --- | --- |
@@ -161,14 +185,18 @@ All use the password `Udaan@123`.
 | `PORT`               | server  | Local API port (default `5000`)                                |
 | `CORS_ORIGINS`       | server  | Only if the web app runs on another origin (comma-separated)   |
 | `DB_POOL_MAX`        | server  | Connections per API instance (default `5`)                     |
+| `JWT_SECRET`         | server  | Signs login tokens — 32+ random characters, secret             |
+| `JWT_EXPIRES_IN`     | server  | Session length (default `8h`)                                  |
+| `BCRYPT_ROUNDS`      | server  | Password hashing cost (default `12`)                           |
+| `LOGIN_RATE_LIMIT`   | server  | Failed sign-ins allowed per email and IP per 15 min (default `10`) |
 
 ## Deployment (Vercel)
 
 1. Import this repository into Vercel (leave **Root Directory** as the repo root).
 2. Vercel reads `vercel.json`: it runs `npm run build`, serves `client/dist`, and
    deploys `api/index.js` (the Express app) as a serverless function for `/api/*`.
-3. Add `DATABASE_URL` (Neon pooled string) in **Project → Settings → Environment
-   Variables**, and run `npm run db:deploy` from your machine to apply migrations.
+3. Add `DATABASE_URL` (Neon pooled string) and `JWT_SECRET` (a new random value, not
+   your local one) in **Project → Settings → Environment Variables**, and run `npm run db:deploy` from your machine to apply migrations.
    The API registers its connection pool with `attachDatabasePool` from
    `@vercel/functions`, so idle connections are closed cleanly between requests.
    The full production checklist is added in a later step.

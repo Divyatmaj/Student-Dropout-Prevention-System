@@ -26,6 +26,17 @@ const schema = z.object({
     message: 'must be a postgresql:// connection string',
   }),
   DB_POOL_MAX: z.coerce.number().int().min(1).max(50).default(5),
+  // Signs login tokens. Use a long random value (e.g. `openssl rand -base64 48`).
+  JWT_SECRET: optionalString.refine((v) => !v || v.length >= 32, {
+    message: 'must be at least 32 characters',
+  }),
+  JWT_EXPIRES_IN: z
+    .string()
+    .regex(/^\d+[smhd]$/, 'use a duration like 8h or 30m')
+    .default('8h'),
+  BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
+  // Failed-or-not login attempts allowed per IP and email in 15 minutes.
+  LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
   CORS_ORIGINS: optionalString.transform((v) =>
     v ? v.split(',').map((o) => o.trim()).filter(Boolean) : []
   ),
