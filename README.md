@@ -56,7 +56,8 @@ The API needs a PostgreSQL database. This project uses [Neon](https://neon.com)
 3. Create the tables: `npm run db:deploy` (uses the direct connection).
 4. Set a token-signing secret in `server/.env` (git-ignored):
    `echo "JWT_SECRET=\"$(openssl rand -base64 48)\"" > server/.env`
-5. Add the demo school and staff accounts: `npm run db:seed` (safe to re-run).
+5. Add the demo school, staff, students, attendance, assessments and marks:
+   `npm run db:seed` (safe to re-run; it only adds what is missing).
 6. Start both apps: `npm run dev` (API on http://localhost:5000, web app on
    http://localhost:3000; the web app proxies `/api` to the API).
 7. Check the connection: http://localhost:3000/api/v1/health/db should return
@@ -82,7 +83,7 @@ non-default branches expire after 7 days, which suits per-feature branches creat
 | `npm run db:migrate` | Create a migration after editing `schema.prisma` (dev DB) |
 | `npm run db:deploy`  | Apply pending migrations to the database                  |
 | `npm run db:status`  | Show which migrations have been applied                   |
-| `npm run db:seed`    | Add or update the demo school and staff accounts          |
+| `npm run db:seed`    | Add the demo school, staff and student records            |
 | `npm run db:studio`  | Browse the database in Prisma Studio                      |
 
 API tests run without a database. To also run the database tests, point
@@ -115,6 +116,31 @@ empty it first), migrated with `npm run db:deploy`:
 - Every query is limited to the user's own school: another school's ids return `404`.
 - There is no public sign-up. School admins create staff accounts on the Staff page
   (`/api/v1/users`).
+- **Teachers see only the students assigned to them** (the "Class teacher" field on a
+  student, set by an administrator or principal). That covers students, attendance,
+  marks and the assessments for those students' classes. Teachers can update guardian
+  contact and support notes, but not enrolment details.
+
+### Records API
+
+| Area | Endpoints |
+| --- | --- |
+| Students | `GET/POST /students`, `GET/PATCH /students/:id`, `PATCH /students/:id/status`, `GET /students/:id/summary` |
+| Attendance | `GET /attendance`, `GET /attendance/overview`, `GET /attendance/register`, `GET /attendance/student/:studentId`, `POST /attendance`, `POST /attendance/bulk`, `PATCH /attendance/:id`, `DELETE /attendance/:id` |
+| Assessments | `GET/POST /assessments`, `GET /assessments/overview`, `GET/PATCH/DELETE /assessments/:id` |
+| Marks | `POST /marks`, `POST /marks/bulk`, `PATCH /marks/:id`, `DELETE /marks/:id` |
+
+- One attendance record per student per day, and one mark per student per assessment
+  (`409` on duplicates). The bulk endpoints save a whole register or marks sheet at once:
+  all entries are checked first, and nothing is saved if any is invalid.
+- Teachers can correct only the attendance they recorded; administrators and principals
+  can correct any. Deleting an attendance record or a mark is for administrators only,
+  needs a reason, and keeps a copy in the audit log.
+- Students are never deleted — their status changes instead, and their history is kept.
+- Every change to attendance, marks, the financial-barrier flag or enrolment status
+  recalculates that student's risk indicator straight away.
+- "Today" (for future-date checks and overdue follow-ups) is the school's date, set by
+  `SCHOOL_TIMEZONE` (default `Asia/Kolkata`).
 
 ## Attendance policy
 
@@ -188,6 +214,7 @@ Created by `npm run db:seed` (and built into mock mode). All use the password
 | `JWT_SECRET`         | server  | Signs login tokens — 32+ random characters, secret             |
 | `JWT_EXPIRES_IN`     | server  | Session length (default `8h`)                                  |
 | `BCRYPT_ROUNDS`      | server  | Password hashing cost (default `12`)                           |
+| `SCHOOL_TIMEZONE`    | server  | The school's timezone for "today" (default `Asia/Kolkata`)     |
 | `LOGIN_RATE_LIMIT`   | server  | Failed sign-ins allowed per email and IP per 15 min (default `10`) |
 
 ## Deployment (Vercel)

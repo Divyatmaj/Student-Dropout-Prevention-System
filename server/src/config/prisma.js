@@ -60,6 +60,7 @@ export function getPrisma() {
     // An idle client that loses its connection must not crash the process.
     pool.on('error', (err) => console.error('[udaan-api] idle database connection error:', err.message));
     attachDatabasePool(pool);
+    globalForPrisma.__udaanPool = pool;
 
     const adapter = new PrismaPg(pool);
     globalForPrisma.__udaanPrisma = new PrismaClient({
@@ -70,10 +71,15 @@ export function getPrisma() {
   return globalForPrisma.__udaanPrisma;
 }
 
-/** Close the pool (used on shutdown and after tests). */
+/**
+ * Close the client and its pool (on shutdown, after the seed and tests).
+ * The pool is ours, so Prisma's $disconnect does not end it — without
+ * pool.end() idle connections keep the process alive until they time out.
+ */
 export async function disconnectPrisma() {
-  if (globalForPrisma.__udaanPrisma) {
-    await globalForPrisma.__udaanPrisma.$disconnect();
-    globalForPrisma.__udaanPrisma = undefined;
-  }
+  const { __udaanPrisma: prisma, __udaanPool: pool } = globalForPrisma;
+  globalForPrisma.__udaanPrisma = undefined;
+  globalForPrisma.__udaanPool = undefined;
+  if (prisma) await prisma.$disconnect();
+  if (pool && !pool.ended) await pool.end();
 }

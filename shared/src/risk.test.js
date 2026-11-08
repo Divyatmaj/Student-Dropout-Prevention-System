@@ -208,3 +208,20 @@ describe('academics helpers', () => {
     expect(averagePercentage([])).toBeNull();
   });
 });
+
+describe('needsReview', () => {
+  it('flags unreviewed medium/high assessments only', async () => {
+    const { needsReview } = await import('./risk.js');
+    expect(needsReview({ category: 'HIGH', reviewedAt: null })).toBe(true);
+    expect(needsReview({ category: 'LOW', reviewedAt: null })).toBe(false);
+    expect(needsReview({ category: 'INSUFFICIENT_DATA', reviewedAt: null })).toBe(false);
+  });
+
+  it('flags a review older than the last change', async () => {
+    const { needsReview } = await import('./risk.js');
+    const changedAt = '2026-11-07T10:00:00.000Z';
+    expect(needsReview({ category: 'MEDIUM', changedAt, reviewedAt: '2026-11-06T09:00:00.000Z' })).toBe(true);
+    expect(needsReview({ category: 'MEDIUM', changedAt, reviewedAt: '2026-11-08T09:00:00.000Z' })).toBe(false);
+    expect(needsReview({ category: 'MEDIUM', changedAt: new Date(changedAt), reviewedAt: new Date('2026-11-08') })).toBe(false);
+  });
+});

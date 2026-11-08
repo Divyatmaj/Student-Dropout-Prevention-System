@@ -6,7 +6,7 @@
  * services call `recalculateMockRisk` after any change to attendance, marks,
  * support flags or enrolment status — the same moments the API recalculates.
  */
-import { assessStudentRisk } from '@udaan/shared';
+import { assessStudentRisk, needsReview } from '@udaan/shared';
 
 import { mockStudentsList } from './mockStudentsData.js';
 import { mockAttendanceRecords } from './mockAttendanceData.js';
@@ -67,11 +67,7 @@ export function recalculateAllMockRisk(calculatedAt = new Date().toISOString()) 
   return mockStudentsList.map((s) => recalculateMockRisk(s.id, calculatedAt)).filter(Boolean);
 }
 
-/** Has the score changed since the last human review? */
-export function needsReview(assessment) {
-  if (!assessment || assessment.category === 'LOW') return false;
-  return !assessment.reviewedAt || assessment.reviewedAt < assessment.changedAt;
-}
+export { needsReview };
 
 // Seed every active student, then one example review.
 recalculateAllMockRisk(SEEDED_AT);

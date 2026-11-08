@@ -62,7 +62,7 @@ export const mockInterventionsList = [
       category: 'HIGH',
       reasons: [
         { code: 'LOW_ATTENDANCE', label: 'Attendance is below 75%', points: 30 },
-        { code: 'SEVERE_ACADEMIC_DECLINE', label: 'Mathematics result dropped 24 percentage points', points: 20 },
+        { code: 'ACADEMIC_DECLINE_20_PLUS', label: 'Mathematics result dropped 24 percentage points', points: 20 },
         { code: 'FINANCIAL_BARRIER', label: 'Financial barrier reported', points: 10 },
       ],
     },
@@ -90,7 +90,7 @@ export const mockInterventionsList = [
       category: 'MEDIUM',
       reasons: [
         { code: 'LOW_ATTENDANCE', label: 'Attendance is below 75%', points: 30 },
-        { code: 'MODERATE_ACADEMIC_DECLINE', label: 'Mathematics result dropped 12 percentage points', points: 10 },
+        { code: 'ACADEMIC_DECLINE_10_PLUS', label: 'Mathematics result dropped 12 percentage points', points: 10 },
       ],
     },
     history: [
@@ -157,7 +157,7 @@ export const mockInterventionsList = [
       score: 35,
       category: 'MEDIUM',
       reasons: [
-        { code: 'SEVERE_ACADEMIC_DECLINE', label: 'Science result dropped 24 percentage points', points: 20 },
+        { code: 'ACADEMIC_DECLINE_20_PLUS', label: 'Science result dropped 24 percentage points', points: 20 },
         { code: 'MODERATE_ATTENDANCE', label: 'Attendance is between 75% and 85%', points: 15 },
       ],
     },

@@ -38,19 +38,6 @@ export const RISK_CATEGORY_LABELS = {
   INSUFFICIENT_DATA: 'Insufficient data',
 };
 
-/** Grades offered by the demo school (primary to secondary). */
-export const GRADES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-
-export const SECTIONS = ['A', 'B', 'C', 'D'];
-
-export const GUARDIAN_RELATIONSHIPS = [
-  'Mother',
-  'Father',
-  'Grandparent',
-  'Sibling',
-  'Aunt/Uncle',
-  'Legal guardian',
-  'Other',
-];
+export { GRADES, SECTIONS, GUARDIAN_RELATIONSHIPS } from '@udaan/shared';
 
 export const STUDENTS_PAGE_SIZE = 20;

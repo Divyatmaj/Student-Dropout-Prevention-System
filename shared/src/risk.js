@@ -176,3 +176,15 @@ export function assessStudentRisk({
 
   return { ...calculateRisk(indicators), indicators };
 }
+
+/**
+ * Does a current risk assessment still need a person to look at it?
+ * True for medium/high flags that were never reviewed, or whose score,
+ * category or data status changed after the last review.
+ * @param {{category, reviewedAt?, changedAt?}} assessment  (ISO strings or Dates)
+ */
+export function needsReview(assessment) {
+  if (!assessment || assessment.category === 'LOW' || assessment.category === 'INSUFFICIENT_DATA') return false;
+  if (!assessment.reviewedAt) return true;
+  return new Date(assessment.reviewedAt) < new Date(assessment.changedAt);
+}

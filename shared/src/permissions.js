@@ -42,7 +42,10 @@ const PERMISSION_ROLES = {
   ATTENDANCE_CORRECT_ANY: [SCHOOL_ADMIN, PRINCIPAL], // others may correct only their own entries
   ATTENDANCE_DELETE: [SCHOOL_ADMIN],
   ASSESSMENT_CREATE: ALL_STAFF,
+  ASSESSMENT_UPDATE_ANY: [SCHOOL_ADMIN], // others may edit only assessments they created
+  ASSESSMENT_DELETE: [SCHOOL_ADMIN], // only while no marks are recorded
   MARKS_RECORD: ALL_STAFF,
+  MARKS_DELETE: [SCHOOL_ADMIN],
 
   // Risk
   RISK_RECALCULATE: ALL_STAFF,

@@ -1,11 +1,2 @@
-/** Subjects offered by the demo school (used for assessment forms and filters). */
-export const SUBJECTS = [
-  'Mathematics',
-  'Science',
-  'English',
-  'Hindi',
-  'Marathi',
-  'Social Studies',
-  'Computer Science',
-];
-
+/** Subjects offered by the demo school — defined in @udaan/shared so the API validates the same list. */
+export { SUBJECTS } from '@udaan/shared';

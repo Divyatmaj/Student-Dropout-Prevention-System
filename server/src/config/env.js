@@ -34,6 +34,18 @@ const schema = z.object({
     .string()
     .regex(/^\d+[smhd]$/, 'use a duration like 8h or 30m')
     .default('8h'),
+  // The school's timezone decides what "today" is (attendance dates, overdue checks).
+  SCHOOL_TIMEZONE: z
+    .string()
+    .default('Asia/Kolkata')
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'must be an IANA timezone such as Asia/Kolkata'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
   // Failed-or-not login attempts allowed per IP and email in 15 minutes.
   LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),

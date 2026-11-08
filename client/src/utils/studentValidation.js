@@ -4,6 +4,8 @@
  * This gives fast feedback in the browser. The Udaan API validates the same
  * rules again (and checks that the student code is unique in the school).
  */
+import { GUARDIAN_PHONE_PATTERN, STUDENT_CODE_PATTERN } from '@udaan/shared';
+
 import { GRADES, SECTIONS, GUARDIAN_RELATIONSHIPS } from '../constants/students.js';
 import { todayISO } from './formatters.js';
 
@@ -19,9 +21,9 @@ export const EMPTY_STUDENT_FORM = {
   guardianRelationship: '',
   financialBarrierReported: false,
   supportNotes: '',
+  assignedTeacherId: '',
 };
 
-const STUDENT_CODE_PATTERN = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 const DATE_FIELDS = ['dateOfBirth', 'admissionDate'];
 
 /** Turn an API student into form values (nulls → empty strings). */
@@ -57,6 +59,7 @@ export function toStudentPayload(values) {
     guardianRelationship: clean(values.guardianRelationship),
     financialBarrierReported: Boolean(values.financialBarrierReported),
     supportNotes: clean(values.supportNotes),
+    assignedTeacherId: clean(values.assignedTeacherId),
   };
 }
 
@@ -96,7 +99,7 @@ export function validateStudentForm(values) {
     errors.admissionDate = 'Admission date cannot be in the future.';
   }
 
-  if (payload.guardianPhone && !/^\+?\d{10,13}$/.test(payload.guardianPhone)) {
+  if (payload.guardianPhone && !GUARDIAN_PHONE_PATTERN.test(payload.guardianPhone)) {
     errors.guardianPhone = 'Enter a 10–13 digit phone number.';
   }
 

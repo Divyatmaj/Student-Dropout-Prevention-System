@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertCircle, Lock } from 'lucide-react';
 
 import Modal from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import { createStudent, updateStudent } from '../../services/studentService.js';
+import { getAssignableStaff } from '../../services/staffService.js';
+import { STUDENT_ENROLMENT_FIELDS } from '@udaan/shared';
 import { useAuth } from '../../hooks/useAuth.js';
 import { PERMISSIONS } from '../../utils/permissions.js';
 import { GRADES, SECTIONS, GUARDIAN_RELATIONSHIPS } from '../../constants/students.js';
@@ -15,8 +17,8 @@ import {
   apiDetailsToFieldErrors,
 } from '../../utils/studentValidation.js';
 
-/** Fields only school admins / principals may change. */
-const ENROLMENT_FIELDS = ['studentCode', 'fullName', 'dateOfBirth', 'grade', 'section', 'admissionDate'];
+/** Fields only school admins / principals may change (shared with the API). */
+const ENROLMENT_FIELDS = STUDENT_ENROLMENT_FIELDS;
 
 const FORM_ID = 'student-form';
 
@@ -44,6 +46,20 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
   const [touched, setTouched] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [teachers, setTeachers] = useState([]);
+  const [teachersError, setTeachersError] = useState('');
+
+  // Class teacher options (teachers see only students assigned to them).
+  useEffect(() => {
+    if (!canEditEnrolment) return undefined;
+    let cancelled = false;
+    getAssignableStaff()
+      .then(({ users }) => !cancelled && setTeachers(users.filter((u) => u.role === 'TEACHER')))
+      .catch(() => !cancelled && setTeachersError('Could not load teachers. You can assign one later.'));
+    return () => {
+      cancelled = true;
+    };
+  }, [canEditEnrolment]);
 
   const setField = (field, value) => {
     const next = { ...values, [field]: value };
@@ -219,6 +235,24 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
             <input {...fieldProps('admissionDate')} className="form-input" type="date" max={todayISO()} />
             {fieldError('admissionDate')}
           </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label" htmlFor="student-assignedTeacherId">Class teacher</label>
+          <select {...fieldProps('assignedTeacherId')} className="form-select">
+            <option value="">Not assigned</option>
+            {student?.assignedTeacherId && !teachers.some((t) => t.id === student.assignedTeacherId) && (
+              <option value={student.assignedTeacherId}>{student.assignedTeacherName ?? 'Current teacher'}</option>
+            )}
+            {teachers.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+          {fieldError('assignedTeacherId') || (
+            <span className="form-helper">
+              {teachersError || 'Teachers see, mark and support only the students assigned to them.'}
+            </span>
+          )}
         </div>
 
         <div className="form-section-title">Guardian contact</div>

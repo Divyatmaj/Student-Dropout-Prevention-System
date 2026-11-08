@@ -9,6 +9,19 @@
  *   configurable heuristic for the prototype, not an academic standard.
  */
 
+/** Subjects offered by the demo school (assessment forms, filters and API validation). */
+export const SUBJECTS = Object.freeze([
+  'Mathematics',
+  'Science',
+  'English',
+  'Hindi',
+  'Marathi',
+  'Social Studies',
+  'Computer Science',
+]);
+
+export const MAX_ASSESSMENT_MARKS = 1000;
+
 export const ACADEMIC_DECLINE_THRESHOLDS = Object.freeze({
   moderate: 10,
   severe: 20,

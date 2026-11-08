@@ -7,6 +7,7 @@ import { mockMarksForStudent } from '../data/mockAcademicsData.js';
 import { mockRiskAssessments, recalculateMockRisk, needsReview } from '../data/mockRiskStore.js';
 import { mockInterventionsList } from '../data/mockInterventionsData.js';
 import { STUDENTS_PAGE_SIZE, STUDENT_STATUS } from '../constants/students.js';
+import { mockUsers } from '../data/mockUsersData.js';
 import { todayISO } from '../utils/formatters.js';
 
 /* -------------------------------------------------------------------------- */
@@ -29,6 +30,21 @@ function assertUniqueCode(studentCode, ignoreId = null) {
       details: [{ field: 'studentCode', message: 'This student code is already in use.' }],
     });
   }
+}
+
+/** Mock mode: resolve the class teacher's name, as the API joins it in. */
+function withTeacherName(values) {
+  if (!('assignedTeacherId' in values)) return values;
+  const teacher = mockUsers.find((u) => u.id === values.assignedTeacherId && u.role === 'TEACHER' && u.isActive);
+  if (values.assignedTeacherId && !teacher) {
+    throw new ApiError({
+      status: 422,
+      code: 'VALIDATION_ERROR',
+      message: 'Please fix the highlighted fields.',
+      details: [{ field: 'assignedTeacherId', message: 'Choose an active teacher from this school.' }],
+    });
+  }
+  return { ...values, assignedTeacherId: teacher?.id ?? null, assignedTeacherName: teacher?.name ?? null };
 }
 
 function findMockStudent(id) {
@@ -176,10 +192,10 @@ export async function createStudent(payload) {
 
   const student = {
     id: `STU-${Math.floor(2000 + Math.random() * 8000)}`,
-    ...payload,
-    status: STUDENT_STATUS.ACTIVE,
     assignedTeacherId: null,
     assignedTeacherName: null,
+    ...withTeacherName(payload),
+    status: STUDENT_STATUS.ACTIVE,
   };
   mockStudentsList.unshift(student);
   recalculateMockRisk(student.id);
@@ -199,7 +215,7 @@ export async function updateStudent(id, payload) {
   const student = findMockStudent(id);
   if (payload.studentCode) assertUniqueCode(payload.studentCode, id);
 
-  Object.assign(student, payload);
+  Object.assign(student, withTeacherName(payload));
   recalculateMockRisk(id); // e.g. the financial-barrier flag changed
   return withComputedFields(student);
 }
