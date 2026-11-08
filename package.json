@@ -1,21 +1,18 @@
 {
-  "name": "udaan-frontend",
+  "name": "udaan",
   "private": true,
   "version": "0.1.0",
+  "description": "Udaan - Student Retention & Early Intervention Platform",
   "type": "module",
+  "workspaces": [
+    "client"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "preview": "npm run preview -w client"
   },
-  "dependencies": {
-    "lucide-react": "^0.460.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^5.4.11"
+  "engines": {
+    "node": ">=20"
   }
 }
