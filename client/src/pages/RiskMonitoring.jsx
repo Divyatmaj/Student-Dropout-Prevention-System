@@ -325,7 +325,7 @@ export default function RiskMonitoring() {
                             )}
                             {can(PERMISSIONS.INTERVENTION_CREATE) && (a.category === 'HIGH' || a.category === 'MEDIUM') && (
                               <Link
-                                to={`/interventions?studentId=${a.studentId}&name=${encodeURIComponent(a.student.fullName)}`}
+                                to={`/interventions?new=${a.studentId}`}
                                 className="btn btn-outline btn-sm"
                               >
                                 <PlusCircle size={14} aria-hidden="true" /> Intervention

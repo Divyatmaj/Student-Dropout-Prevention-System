@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, Clock, CheckCircle2, XCircle, FileText, HelpCircle } from 'lucide-react';
 import { STUDENT_STATUS_LABELS } from '../../constants/students.js';
 import { DATA_STATUS_LABELS } from '../../constants/risk.js';
+import { INTERVENTION_STATUS_LABELS, INTERVENTION_PRIORITY_LABELS } from '../../constants/interventions.js';
 
 export default function Badge({ type = 'risk', value, children }) {
   const normalized = (value || children || '').toString().toLowerCase().replace(/\s+/g, '_');
@@ -74,18 +75,29 @@ export default function Badge({ type = 'risk', value, children }) {
     );
   }
 
+  // Intervention status: OPEN | IN_PROGRESS | COMPLETED | CANCELLED
   if (type === 'status') {
     return (
       <span className={`badge badge-status-${normalized}`}>
-        {children || value}
+        {children || INTERVENTION_STATUS_LABELS[(value || '').toUpperCase()] || value}
       </span>
     );
   }
 
+  // Intervention priority: LOW | MEDIUM | HIGH
   if (type === 'priority') {
     return (
       <span className={`badge badge-priority-${normalized}`}>
-        {children || value}
+        {children || `${INTERVENTION_PRIORITY_LABELS[(value || '').toUpperCase()] || value} priority`}
+      </span>
+    );
+  }
+
+  if (type === 'overdue') {
+    return (
+      <span className="badge badge-overdue">
+        <AlertTriangle size={12} />
+        <span>{children || 'Overdue'}</span>
       </span>
     );
   }

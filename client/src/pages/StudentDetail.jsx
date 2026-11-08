@@ -42,6 +42,7 @@ import {
   formatPercent,
 } from '../utils/formatters.js';
 import { STUDENT_STATUS, STUDENT_STATUS_LABELS } from '../constants/students.js';
+import { CONCERN_CATEGORY_LABELS } from '../constants/interventions.js';
 
 const RISK_TONES = {
   HIGH: { bg: 'var(--color-risk-high-subtle)', fg: 'var(--color-risk-high)' },
@@ -251,7 +252,7 @@ export default function StudentDetail() {
           )}
           {isActive && can(PERMISSIONS.INTERVENTION_CREATE) && (
             <Link
-              to={`/interventions?studentId=${student.id}&name=${encodeURIComponent(student.fullName)}`}
+              to={`/interventions?new=${student.id}`}
               className="btn btn-primary btn-md"
             >
               <PlusCircle size={16} aria-hidden="true" />
@@ -481,28 +482,42 @@ export default function StudentDetail() {
 
         <div className="card-body">
           {interventions.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {interventions.map((item) => (
-                <div
+                <Link
                   key={item.id}
-                  style={{ padding: '16px', backgroundColor: 'var(--color-bg-muted)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                  to={`/interventions?id=${item.id}`}
+                  style={{
+                    display: 'block',
+                    padding: '14px 16px',
+                    backgroundColor: 'var(--color-bg-muted)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    borderLeft: item.isOverdue ? '3px solid var(--color-risk-high)' : '1px solid var(--color-border)',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 700, fontSize: '14px' }}>{item.type}</span>
-                      <Badge type="priority" value={item.priority} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: '14px' }}>{CONCERN_CATEGORY_LABELS[item.category]}</span>
                       <Badge type="status" value={item.status} />
+                      <Badge type="priority" value={item.priority} />
+                      {item.isOverdue && <Badge type="overdue" />}
                     </div>
                     <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                      {formatDate(item.date)} • {item.counselor}
+                      {item.status === 'OPEN' || item.status === 'IN_PROGRESS'
+                        ? `Due ${formatDate(item.dueDate)}`
+                        : `Opened ${formatDate(item.createdAt)}`}{' '}
+                      · {item.assignedToName || 'Unassigned'}
                     </span>
                   </div>
-                  {item.notes && (
-                    <p style={{ marginTop: '10px', fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                      {item.notes}
+                  {item.outcome && (
+                    <p style={{ marginTop: '8px', fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                      <strong>Outcome:</strong> {item.outcome}
                     </p>
                   )}
-                </div>
+                </Link>
               ))}
             </div>
           ) : (

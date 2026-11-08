@@ -16,22 +16,8 @@ import { todayISO } from '../utils/formatters.js';
 
 const SEEDED_AT = '2026-11-06T16:30:00.000Z';
 
-// Legacy intervention statuses → API enum (interventions move to the
-// API shape in a later step; this keeps the overdue rule working now).
-const INTERVENTION_STATUS = {
-  pending: 'OPEN',
-  in_progress: 'IN_PROGRESS',
-  completed: 'COMPLETED',
-  cancelled: 'CANCELLED',
-};
-
 function interventionsFor(studentId) {
-  return mockInterventionsList
-    .filter((i) => i.studentId === studentId)
-    .map((i) => ({
-      status: INTERVENTION_STATUS[i.status] || i.status,
-      dueDate: i.dueDate || i.scheduledDate || null,
-    }));
+  return mockInterventionsList.filter((i) => i.studentId === studentId);
 }
 
 /** studentId → current risk assessment */

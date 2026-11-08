@@ -1,5 +1,5 @@
 import { apiClient, ApiError, USE_MOCKS, mockDelay, tokenStorage } from './api.js';
-import { mockUsers, DEMO_PASSWORD } from '../data/mockUsersData.js';
+import { mockUsers, mockPasswords, DEMO_PASSWORD } from '../data/mockUsersData.js';
 
 const MOCK_TOKEN_PREFIX = 'mock-token.';
 
@@ -23,7 +23,7 @@ export async function login(email, password) {
 
   await mockDelay(400);
   const user = mockUsers.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-  if (!user || !user.isActive || password !== DEMO_PASSWORD) {
+  if (!user || !user.isActive || password !== (mockPasswords.get(user.id) ?? DEMO_PASSWORD)) {
     throw invalidCredentials();
   }
   return { token: `${MOCK_TOKEN_PREFIX}${user.id}`, user: { ...user } };

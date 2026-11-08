@@ -6,7 +6,7 @@ import { mockAttendanceRecords, nextMockAttendanceId } from '../data/mockAttenda
 import { mockStudentsList } from '../data/mockStudentsData.js';
 import { recalculateMockRisk } from '../data/mockRiskStore.js';
 import { STUDENT_STATUS } from '../constants/students.js';
-import { todayISO } from '../utils/formatters.js';
+import { todayISO, daysAgoISO } from '../utils/formatters.js';
 
 export const ATTENDANCE_PAGE_SIZE = 50;
 const DEFAULT_PERIOD_DAYS = 30;
@@ -14,13 +14,6 @@ const DEFAULT_PERIOD_DAYS = 30;
 /* -------------------------------------------------------------------------- */
 /* Mock helpers                                                               */
 /* -------------------------------------------------------------------------- */
-
-function daysAgoISO(days) {
-  const date = new Date(`${todayISO()}T00:00:00`);
-  date.setDate(date.getDate() - days);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
 
 function validationError(message, field) {
   return new ApiError({

@@ -4,12 +4,13 @@ import { Menu, Bell } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
 const routeTitleMap = {
-  '/dashboard': 'Executive Overview',
+  '/dashboard': 'Overview',
   '/students': 'Students',
   '/attendance': 'Attendance',
   '/academics': 'Academic Performance',
   '/risk': 'Risk Monitoring & Indicators',
-  '/interventions': 'Intervention Management',
+  '/interventions': 'Interventions',
+  '/staff': 'Staff Accounts',
 };
 
 export default function Navbar({ onToggleSidebar }) {

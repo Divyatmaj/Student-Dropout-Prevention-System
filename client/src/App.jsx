@@ -14,6 +14,7 @@ import Attendance from './pages/Attendance.jsx';
 import Academics from './pages/Academics.jsx';
 import RiskMonitoring from './pages/RiskMonitoring.jsx';
 import Interventions from './pages/Interventions.jsx';
+import Staff from './pages/Staff.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="academics" element={<Academics />} />
             <Route path="risk" element={<RiskMonitoring />} />
             <Route path="interventions" element={<Interventions />} />
+            <Route path="staff" element={<Staff />} />
             {/* Catch-all Not Found inside layout */}
             <Route path="*" element={<NotFound />} />
           </Route>

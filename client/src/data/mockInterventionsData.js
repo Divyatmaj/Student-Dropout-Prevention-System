@@ -1,255 +1,250 @@
 /**
- * ============================================================================
- * Backend Contract & Mock Dataset for Intervention Management Module
- * ============================================================================
- * 
- * BACKEND DEVELOPER INTEGRATION NOTES:
- * ----------------------------------------------------------------------------
- * This file models the exact schema for the Express + PostgreSQL backend.
- * 
- * 1. GET /interventions
- *    - Query params supported:
- *        status: 'all' | 'pending' | 'in_progress' | 'completed'
- *        priority: 'all' | 'urgent' | 'high' | 'normal'
- *        type: string
- *        search: string
- *    - Expected Response: {
- *        overview: {
- *          totalCases: number,
- *          pendingCount: number,
- *          inProgressCount: number,
- *          completedCount: number,
- *          urgentCount: number
- *        },
- *        interventions: InterventionItem[]
- *      }
- * 
- * 2. POST /interventions
- *    - Request Body: {
- *        studentId: string,
- *        studentName: string,
- *        type: string,
- *        priority: 'urgent' | 'high' | 'normal',
- *        counselorName: string,
- *        scheduledDate: string,
- *        notes: string
- *      }
- *    - Expected Response: { success: true, record: InterventionItem }
- * 
- * 3. PATCH /interventions/:id
- *    - Request Body: {
- *        status?: 'pending' | 'in_progress' | 'completed',
- *        newNote?: string,
- *        resolutionRemarks?: string
- *      }
- *    - Expected Response: { success: true, updatedRecord: InterventionItem }
- * ============================================================================
+ * Mock interventions for the Udaan web app (VITE_USE_MOCKS=true only).
+ *
+ * Shape matches the Udaan API `Intervention` resource:
+ *   {
+ *     id, studentId,
+ *     category: ATTENDANCE | ACADEMIC | FINANCIAL | ACCESSIBILITY | FAMILY | OTHER,
+ *     priority: LOW | MEDIUM | HIGH,
+ *     status:   OPEN | IN_PROGRESS | COMPLETED | CANCELLED,
+ *     description, actionPlan, outcome,
+ *     dueDate, followUpDate,                     // YYYY-MM-DD
+ *     assignedToId, assignedToName, createdById, createdByName,
+ *     createdAt, updatedAt,
+ *     riskSnapshot: { score, category, reasons: [{ code, label, points }] } | null,
+ *     history: [{ id, at, byId, byName, type, fromStatus?, toStatus?, note? }]
+ *   }
+ * `riskSnapshot` is copied when the intervention is created and never
+ * updated, so the reasons that prompted it are kept even after the score
+ * changes. History is append-only (newest last).
+ *
+ * Contract:
+ *   GET   /interventions/overview                → { counts, overdue, dueThisWeek }
+ *   GET   /interventions?status=&priority=&category=&assignedTo=&due=&studentId=&search=
+ *         → { interventions, total }
+ *   GET   /interventions/:id                     → Intervention
+ *   POST  /interventions                         → Intervention
+ *   PATCH /interventions/:id                     body { description?, actionPlan?, priority?,
+ *         category?, assignedToId?, dueDate?, followUpDate?, note? } → Intervention
+ *   PATCH /interventions/:id/status              body { status, outcome?, note? } → Intervention
  */
 
-export const mockInterventionsOverview = {
-  totalCases: 24,
-  pendingCount: 7,
-  inProgressCount: 9,
-  completedCount: 8,
-  urgentCount: 5,
+const STAFF = {
+  admin: { id: 'USR-001', name: 'Radhika Sharma' },
+  principal: { id: 'USR-002', name: 'Amit Verma' },
+  neha: { id: 'USR-003', name: 'Neha Gupta' },
+  farhan: { id: 'USR-005', name: 'Farhan Khan' },
 };
+
+const event = (n, at, by, type, extra = {}) => ({ id: `EVT-${n}`, at, byId: by.id, byName: by.name, type, ...extra });
 
 export const mockInterventionsList = [
   {
-    id: 'INT-401',
+    id: 'INT-007',
     studentId: 'STU-1042',
-    studentName: 'Aarav Sharma',
-    department: 'Computer Science',
-    semester: 4,
-    type: 'Academic Counseling',
-    priority: 'urgent',
-    status: 'pending',
-    counselorName: 'Dr. Radhika Sharma',
-    createdDate: '2026-11-05',
-    scheduledDate: '2026-11-08',
-    initialReason: 'Attendance dropped to 52.8% and failed 3 core assessments.',
-    notes: 'Scheduled in-person meeting with student and department advisor to establish remedial roadmap.',
-    history: [
-      {
-        timestamp: '2026-11-05 10:30 AM',
-        author: 'Dr. Radhika Sharma',
-        action: 'Case Created',
-        note: 'Triggered automatically by High-Risk rule breach (< 65% attendance). Assigned urgent priority.',
-      },
-      {
-        timestamp: '2026-11-06 02:15 PM',
-        author: 'Dr. Radhika Sharma',
-        action: 'Student Contacted',
-        note: 'Sent formal meeting invite for Nov 8 at 11:00 AM. Awaiting student confirmation.',
-      },
-    ],
+    category: 'FINANCIAL',
+    priority: 'HIGH',
+    status: 'OPEN',
+    description:
+      'Aarav has been missing school since his father lost his job — the family says they cannot afford the bus fare every day. Maths result also dropped.',
+    actionPlan: 'Ask the office whether the school bus-pass fund can cover him this term. Call his mother once the pass is arranged.',
+    outcome: null,
+    dueDate: '2026-11-12',
+    followUpDate: '2026-11-19',
+    assignedToId: STAFF.neha.id,
+    assignedToName: STAFF.neha.name,
+    createdById: STAFF.neha.id,
+    createdByName: STAFF.neha.name,
+    createdAt: '2026-11-05T10:30:00.000Z',
+    updatedAt: '2026-11-05T10:30:00.000Z',
+    riskSnapshot: {
+      score: 60,
+      category: 'HIGH',
+      reasons: [
+        { code: 'LOW_ATTENDANCE', label: 'Attendance is below 75%', points: 30 },
+        { code: 'SEVERE_ACADEMIC_DECLINE', label: 'Mathematics result dropped 24 percentage points', points: 20 },
+        { code: 'FINANCIAL_BARRIER', label: 'Financial barrier reported', points: 10 },
+      ],
+    },
+    history: [event(1, '2026-11-05T10:30:00.000Z', STAFF.neha, 'CREATED')],
   },
   {
-    id: 'INT-398',
+    id: 'INT-006',
     studentId: 'STU-1089',
-    studentName: 'Sneha Patel',
-    department: 'Electronics',
-    semester: 6,
-    type: 'Attendance Warning & Parent Outreach',
-    priority: 'high',
-    status: 'in_progress',
-    counselorName: 'Prof. Amit Verma',
-    createdDate: '2026-11-04',
-    scheduledDate: '2026-11-07',
-    initialReason: 'Chronic absence trend (58.0% attendance) and failed DSP mid-term exam.',
-    notes: 'Parent telephonic check-in conducted. Mother confirmed family health situation. Flexible morning lab schedule approved.',
+    category: 'ATTENDANCE',
+    priority: 'HIGH',
+    status: 'IN_PROGRESS',
+    description: 'Sneha has missed about a third of school days since October. Her mother has been unwell and Sneha is helping at home.',
+    actionPlan: 'Home visit with the class teacher. Agree a plan for mornings; connect the family with the local health worker.',
+    outcome: null,
+    dueDate: '2026-11-07',
+    followUpDate: '2026-11-14',
+    assignedToId: STAFF.principal.id,
+    assignedToName: STAFF.principal.name,
+    createdById: STAFF.principal.id,
+    createdByName: STAFF.principal.name,
+    createdAt: '2026-11-04T11:00:00.000Z',
+    updatedAt: '2026-11-05T16:30:00.000Z',
+    riskSnapshot: {
+      score: 40,
+      category: 'MEDIUM',
+      reasons: [
+        { code: 'LOW_ATTENDANCE', label: 'Attendance is below 75%', points: 30 },
+        { code: 'MODERATE_ACADEMIC_DECLINE', label: 'Mathematics result dropped 12 percentage points', points: 10 },
+      ],
+    },
     history: [
-      {
-        timestamp: '2026-11-04 11:00 AM',
-        author: 'Prof. Amit Verma',
-        action: 'Case Created',
-        note: 'High-risk attendance flag issued by department office.',
-      },
-      {
-        timestamp: '2026-11-05 04:30 PM',
-        author: 'Prof. Amit Verma',
-        action: 'Parent Call Completed',
-        note: 'Discussed supportive adjustment plan. Student will attend makeup practicals on Saturdays.',
-      },
+      event(2, '2026-11-04T11:00:00.000Z', STAFF.principal, 'CREATED'),
+      event(3, '2026-11-05T16:30:00.000Z', STAFF.principal, 'STATUS_CHANGED', {
+        fromStatus: 'OPEN',
+        toStatus: 'IN_PROGRESS',
+        note: 'Phoned the father. Home visit planned for this week.',
+      }),
     ],
   },
   {
-    id: 'INT-395',
-    studentId: 'STU-1011',
-    studentName: 'Priya Nair',
-    department: 'Computer Science',
-    semester: 2,
-    type: 'Peer Tutoring Assigned',
-    priority: 'normal',
-    status: 'completed',
-    counselorName: 'Dr. Radhika Sharma',
-    createdDate: '2026-10-25',
-    scheduledDate: '2026-10-28',
-    initialReason: 'Voluntary request for advanced algorithms tutorial.',
-    notes: 'Assigned as peer tutor for 1st-year students after scoring 44/50 in Data Structures.',
-    history: [
-      {
-        timestamp: '2026-10-25 09:00 AM',
-        author: 'Dr. Radhika Sharma',
-        action: 'Tutoring Program Registered',
-        note: 'Enrolled in student mentorship initiative.',
-      },
-      {
-        timestamp: '2026-11-03 03:00 PM',
-        author: 'Dr. Radhika Sharma',
-        action: 'Program Completed',
-        note: 'Successfully conducted 3 peer study sessions. Student in good standing.',
-      },
-    ],
-  },
-  {
-    id: 'INT-392',
+    id: 'INT-005',
     studentId: 'STU-1120',
-    studentName: 'Rohan Deshmukh',
-    department: 'Mechanical',
-    semester: 2,
-    type: 'Remedial Classes',
-    priority: 'high',
-    status: 'in_progress',
-    counselorName: 'Prof. Neha Gupta',
-    createdDate: '2026-11-02',
-    scheduledDate: '2026-11-09',
-    initialReason: 'Failed thermodynamics practical evaluation (score 9/25) due to missed labs.',
-    notes: 'Enrolled in special evening lab batch. Instructor monitoring report submissions.',
+    category: 'ATTENDANCE',
+    priority: 'HIGH',
+    status: 'IN_PROGRESS',
+    description: 'Rohan has been absent for five school days in a row with no message from home.',
+    actionPlan: 'Call the guardian today. If unreachable, ask a classmate\'s family nearby to check in.',
+    outcome: null,
+    dueDate: '2026-11-09',
+    followUpDate: '2026-11-16',
+    assignedToId: STAFF.neha.id,
+    assignedToName: STAFF.neha.name,
+    createdById: STAFF.admin.id,
+    createdByName: STAFF.admin.name,
+    createdAt: '2026-11-06T09:15:00.000Z',
+    updatedAt: '2026-11-06T14:00:00.000Z',
+    riskSnapshot: {
+      score: 55,
+      category: 'HIGH',
+      reasons: [
+        { code: 'LOW_ATTENDANCE', label: 'Attendance is below 75%', points: 30 },
+        { code: 'ABSENCE_STREAK_5_PLUS', label: '5 consecutive absent school days', points: 25 },
+      ],
+    },
     history: [
-      {
-        timestamp: '2026-11-02 01:15 PM',
-        author: 'Prof. Neha Gupta',
-        action: 'Case Opened',
-        note: 'Lab attendance and failure risk logged.',
-      },
-      {
-        timestamp: '2026-11-04 10:00 AM',
-        author: 'Dr. Sandeep Patil',
-        action: 'Lab Schedule Assigned',
-        note: 'Student scheduled for two remedial experimental sessions on Nov 9 & 11.',
-      },
+      event(4, '2026-11-06T09:15:00.000Z', STAFF.admin, 'CREATED'),
+      event(5, '2026-11-06T14:00:00.000Z', STAFF.neha, 'STATUS_CHANGED', {
+        fromStatus: 'OPEN',
+        toStatus: 'IN_PROGRESS',
+        note: 'Mother answered — Rohan had a fever. Will return Monday; asked for a note from the clinic.',
+      }),
     ],
   },
   {
-    id: 'INT-387',
+    id: 'INT-004',
     studentId: 'STU-1194',
-    studentName: 'Ananya Iyer',
-    department: 'Civil Engineering',
-    semester: 4,
-    type: 'Academic Counseling',
-    priority: 'normal',
-    status: 'pending',
-    counselorName: 'Prof. H. Banerjee',
-    createdDate: '2026-10-30',
-    scheduledDate: '2026-11-10',
-    initialReason: 'Borderline exam score (19/50) in Structural Mechanics.',
-    notes: 'Faculty review scheduled to discuss problem-solving technique in bending moments.',
-    history: [
-      {
-        timestamp: '2026-10-30 02:45 PM',
-        author: 'Prof. H. Banerjee',
-        action: 'Case Created',
-        note: 'Medium risk trigger after mid-term evaluation.',
-      },
-    ],
+    category: 'ACADEMIC',
+    priority: 'MEDIUM',
+    status: 'OPEN',
+    description: 'Ananya\'s Science result fell from 84% to 60% between unit tests.',
+    actionPlan: 'Short check-in to see which topics were difficult; offer the lunchtime Science help group.',
+    outcome: null,
+    dueDate: '2026-11-13',
+    followUpDate: null,
+    assignedToId: STAFF.farhan.id,
+    assignedToName: STAFF.farhan.name,
+    createdById: STAFF.admin.id,
+    createdByName: STAFF.admin.name,
+    createdAt: '2026-11-03T13:45:00.000Z',
+    updatedAt: '2026-11-03T13:45:00.000Z',
+    riskSnapshot: {
+      score: 35,
+      category: 'MEDIUM',
+      reasons: [
+        { code: 'SEVERE_ACADEMIC_DECLINE', label: 'Science result dropped 24 percentage points', points: 20 },
+        { code: 'MODERATE_ATTENDANCE', label: 'Attendance is between 75% and 85%', points: 15 },
+      ],
+    },
+    history: [event(6, '2026-11-03T13:45:00.000Z', STAFF.admin, 'CREATED')],
   },
   {
-    id: 'INT-381',
+    id: 'INT-003',
     studentId: 'STU-1205',
-    studentName: 'Vikram Joshi',
-    department: 'Information Tech',
-    semester: 6,
-    type: 'Attendance Warning & Parent Outreach',
-    priority: 'normal',
-    status: 'completed',
-    counselorName: 'Prof. Meera Sen',
-    createdDate: '2026-10-22',
-    scheduledDate: '2026-10-24',
-    initialReason: 'Attendance approached 69.8% cutoff.',
-    notes: 'Advisory meeting held. Student presented local transport pass disruption proof. Attendance recovered to 74% in last 2 weeks.',
+    category: 'FAMILY',
+    priority: 'MEDIUM',
+    status: 'COMPLETED',
+    description: 'Vikram has been arriving late or missing mornings because he helps at the family shop.',
+    actionPlan: 'Meet his father to discuss school hours.',
+    outcome: 'Father agreed Vikram will not work at the shop on school mornings. No absences in the two weeks since.',
+    dueDate: '2026-10-24',
+    followUpDate: '2026-11-21',
+    assignedToId: STAFF.principal.id,
+    assignedToName: STAFF.principal.name,
+    createdById: STAFF.principal.id,
+    createdByName: STAFF.principal.name,
+    createdAt: '2026-10-20T11:30:00.000Z',
+    updatedAt: '2026-10-24T15:00:00.000Z',
+    riskSnapshot: {
+      score: 25,
+      category: 'MEDIUM',
+      reasons: [
+        { code: 'MODERATE_ATTENDANCE', label: 'Attendance is between 75% and 85%', points: 15 },
+        { code: 'FINANCIAL_BARRIER', label: 'Financial barrier reported', points: 10 },
+      ],
+    },
     history: [
-      {
-        timestamp: '2026-10-22 11:30 AM',
-        author: 'Prof. Meera Sen',
-        action: 'Warning Issued',
-        note: 'Automated notice sent.',
-      },
-      {
-        timestamp: '2026-10-24 03:00 PM',
-        author: 'Prof. Meera Sen',
-        action: 'Meeting Held',
-        note: 'Case resolved with commitment to maintain > 75% attendance.',
-      },
+      event(7, '2026-10-20T11:30:00.000Z', STAFF.principal, 'CREATED'),
+      event(8, '2026-10-24T15:00:00.000Z', STAFF.principal, 'STATUS_CHANGED', {
+        fromStatus: 'OPEN',
+        toStatus: 'COMPLETED',
+      }),
     ],
   },
   {
-    id: 'INT-376',
+    id: 'INT-002',
     studentId: 'STU-1231',
-    studentName: 'Pooja Verma',
-    department: 'Computer Science',
-    semester: 4,
-    type: 'Remedial Classes',
-    priority: 'normal',
-    status: 'completed',
-    counselorName: 'Dr. Radhika Sharma',
-    createdDate: '2026-10-15',
-    scheduledDate: '2026-10-20',
-    initialReason: 'Missed OS concurrency tutorials.',
-    notes: 'Completed 2 hours of self-paced online lecture modules.',
+    category: 'ACADEMIC',
+    priority: 'LOW',
+    status: 'COMPLETED',
+    description: 'Pooja missed the fractions lessons in September and asked for help catching up.',
+    actionPlan: 'Two catch-up sessions after school.',
+    outcome: 'Both sessions attended. Pooja is confident with the topic again.',
+    dueDate: '2026-10-10',
+    followUpDate: null,
+    assignedToId: STAFF.neha.id,
+    assignedToName: STAFF.neha.name,
+    createdById: STAFF.neha.id,
+    createdByName: STAFF.neha.name,
+    createdAt: '2026-09-29T08:40:00.000Z',
+    updatedAt: '2026-10-09T15:20:00.000Z',
+    riskSnapshot: null,
     history: [
-      {
-        timestamp: '2026-10-15 01:00 PM',
-        author: 'Dr. Radhika Sharma',
-        action: 'Tutorial Assigned',
-        note: 'Course materials provided.',
-      },
-      {
-        timestamp: '2026-10-20 05:00 PM',
-        author: 'Dr. Radhika Sharma',
-        action: 'Assessment Verified',
-        note: 'Student passed practice quiz with 85% score.',
-      },
+      event(9, '2026-09-29T08:40:00.000Z', STAFF.neha, 'CREATED'),
+      event(10, '2026-10-02T15:10:00.000Z', STAFF.neha, 'STATUS_CHANGED', { fromStatus: 'OPEN', toStatus: 'IN_PROGRESS' }),
+      event(11, '2026-10-09T15:20:00.000Z', STAFF.neha, 'STATUS_CHANGED', { fromStatus: 'IN_PROGRESS', toStatus: 'COMPLETED' }),
+    ],
+  },
+  {
+    id: 'INT-001',
+    studentId: 'STU-1011',
+    category: 'OTHER',
+    priority: 'LOW',
+    status: 'CANCELLED',
+    description: 'Priya\'s parents asked about extra reading support.',
+    actionPlan: 'Add Priya to the library reading club.',
+    outcome: null,
+    dueDate: '2026-10-15',
+    followUpDate: null,
+    assignedToId: STAFF.admin.id,
+    assignedToName: STAFF.admin.name,
+    createdById: STAFF.admin.id,
+    createdByName: STAFF.admin.name,
+    createdAt: '2026-10-05T10:00:00.000Z',
+    updatedAt: '2026-10-08T12:00:00.000Z',
+    riskSnapshot: null,
+    history: [
+      event(12, '2026-10-05T10:00:00.000Z', STAFF.admin, 'CREATED'),
+      event(13, '2026-10-08T12:00:00.000Z', STAFF.admin, 'STATUS_CHANGED', {
+        fromStatus: 'OPEN',
+        toStatus: 'CANCELLED',
+        note: 'Family arranged reading lessons outside school — not needed.',
+      }),
     ],
   },
 ];

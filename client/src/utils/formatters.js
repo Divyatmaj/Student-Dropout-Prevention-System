@@ -30,6 +30,27 @@ export function todayISO() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
+/** `days` added to a YYYY-MM-DD date (negative to go back), as YYYY-MM-DD. */
+export function addDaysISO(isoDate, days) {
+  const date = new Date(`${isoDate}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** The date `days` before today, as YYYY-MM-DD. */
+export function daysAgoISO(days) {
+  return addDaysISO(todayISO(), -days);
+}
+
+/** ISO timestamp → "6 Nov 2026, 4:30 pm" */
+export function formatDateTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 /**
  * Colour token for an attendance percentage, using the Udaan risk thresholds:
  * below 75% is a high concern, 75–85% is a medium concern.

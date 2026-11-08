@@ -50,7 +50,8 @@ const PERMISSION_ROLES = {
 
   // Interventions
   INTERVENTION_CREATE: ALL_STAFF,
-  INTERVENTION_UPDATE: ALL_STAFF,
+  INTERVENTION_UPDATE: ALL_STAFF, // creator or owner — see canManageIntervention
+  INTERVENTION_MANAGE_ANY: [SCHOOL_ADMIN, PRINCIPAL],
 
   // Staff management
   STAFF_VIEW: [SCHOOL_ADMIN, PRINCIPAL],
@@ -74,5 +75,15 @@ export function canCorrectAttendance(user, record) {
   return (
     can(user, 'ATTENDANCE_CORRECT_ANY') ||
     (can(user, 'ATTENDANCE_RECORD') && record.recordedById === user?.id)
+  );
+}
+
+/** Can this user edit or change the status of a specific intervention? */
+export function canManageIntervention(user, intervention) {
+  if (!intervention) return false;
+  return (
+    can(user, 'INTERVENTION_MANAGE_ANY') ||
+    (can(user, 'INTERVENTION_UPDATE') &&
+      (intervention.createdById === user?.id || intervention.assignedToId === user?.id))
   );
 }

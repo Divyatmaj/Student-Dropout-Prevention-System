@@ -81,6 +81,33 @@ the score is **provisional**; with no usable data it is **insufficient data** (n
 "low"). Every score lists its reasons and must be reviewed by a person. It is a
 prioritisation aid for staff — not a prediction, and never grounds for punitive action.
 
+## Interventions
+
+An intervention is a support action for one student with a concern category
+(attendance, academic, financial, accessibility, family, other), a priority, an
+**owner** and a **due date**. Rules live in `shared/src/interventions.js`:
+
+- Status moves between Open → In progress → Completed or Cancelled. Completing needs a
+  written outcome; cancelling or reopening needs a reason.
+- An open intervention is **overdue** once its due date has passed (due today is not
+  overdue). Overdue interventions add +10 to the student's risk score until resolved.
+- The student's risk reasons at the time are saved with the intervention, and every
+  change is kept in an append-only history.
+- Only the creator, the owner, a principal or a school admin can change an intervention.
+- Dashboards show who and when, never the concern text or notes.
+
+## Demo accounts (mock mode)
+
+All use the password `Udaan@123`.
+
+| Email | Role |
+| --- | --- |
+| `admin@udaan.demo` | School administrator — manages staff |
+| `principal@udaan.demo` | Principal |
+| `teacher@udaan.demo` | Teacher — dashboard shows assigned students |
+| `farhan.khan@udaan.demo` | Teacher |
+| `inactive@udaan.demo` | Deactivated — cannot sign in |
+
 ## Environment variables
 
 | Variable             | Where   | Purpose                                              |

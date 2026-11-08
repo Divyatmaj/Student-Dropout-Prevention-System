@@ -1,512 +1,244 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import {
-  ClipboardList,
-  PlusCircle,
-  RotateCcw,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Calendar,
-  UserCheck,
-  ExternalLink,
-  MessageSquare,
-  History,
-  Send,
-  Sparkles,
-} from 'lucide-react';
+import { ClipboardList, PlusCircle, RotateCcw, AlertTriangle, CalendarClock, CheckCircle2, UserCheck } from 'lucide-react';
+import { CONCERN_CATEGORIES, INTERVENTION_PRIORITIES, INTERVENTION_STATUSES } from '@udaan/shared';
 
 import StatCard from '../components/common/StatCard.jsx';
 import Badge from '../components/common/Badge.jsx';
 import Button from '../components/common/Button.jsx';
 import SearchBar from '../components/common/SearchBar.jsx';
-import Modal from '../components/common/Modal.jsx';
 import LoadingState from '../components/common/LoadingState.jsx';
 import ErrorState from '../components/common/ErrorState.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
+import InterventionFormModal from '../components/interventions/InterventionFormModal.jsx';
+import InterventionDetailModal from '../components/interventions/InterventionDetailModal.jsx';
 import '../components/common/common.css';
 
-import {
-  getInterventionsOverview,
-  getInterventions,
-  createIntervention,
-  updateIntervention,
-} from '../services/interventionService.js';
+import { getInterventionsOverview, getInterventions } from '../services/interventionService.js';
 import { useAuth } from '../hooks/useAuth.js';
+import { PERMISSIONS } from '../utils/permissions.js';
+import { formatClass, formatDate } from '../utils/formatters.js';
+import {
+  CONCERN_CATEGORY_LABELS,
+  INTERVENTION_PRIORITY_LABELS,
+  INTERVENTION_STATUS_LABELS,
+} from '../constants/interventions.js';
+
+const DEFAULT_FILTERS = { status: 'active', priority: '', category: '', assignedTo: '', due: '' };
 
 export default function Interventions() {
-  const { user } = useAuth();
-  const [searchParams] = useSearchParams();
-  const urlStudentId = searchParams.get('studentId') || '';
-  const urlStudentName = searchParams.get('name') || '';
+  const { can } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [overview, setOverview] = useState(null);
   const [interventions, setInterventions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Filter States
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'in_progress' | 'completed'
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [search, setSearch] = useState('');
+  const [notice, setNotice] = useState('');
 
-  // Modal 1: Create Intervention State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [createSuccessMsg, setCreateSuccessMsg] = useState('');
-  const [formData, setFormData] = useState({
-    studentId: urlStudentId || 'STU-1042',
-    studentName: urlStudentName || 'Aarav Sharma',
-    department: 'Computer Science',
-    semester: '4',
-    type: 'Academic Counseling',
-    priority: 'urgent',
-    counselorName: 'Dr. Radhika Sharma',
-    scheduledDate: new Date().toISOString().split('T')[0],
-    initialReason: 'Attendance threshold breach and failed unit tests.',
-    notes: 'Initial counseling session to review missing assignments and establish attendance recovery.',
-  });
+  // Modals: create (with optional student), detail, edit.
+  const [creating, setCreating] = useState(null); // null | { studentId }
+  const [viewingId, setViewingId] = useState(null);
+  const [editing, setEditing] = useState(null);
 
-  // Modal 2: Case History & Timeline Modal State
-  const [selectedCase, setSelectedCase] = useState(null);
-  const [newUpdateNote, setNewUpdateNote] = useState('');
-  const [updateStatusChoice, setUpdateStatusChoice] = useState('');
-  const [updateSubmitting, setUpdateSubmitting] = useState(false);
-
-  const loadData = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [overviewData, listData] = await Promise.all([
-        getInterventionsOverview(),
-        getInterventions({
-          status: statusFilter,
-          priority: priorityFilter,
-          type: typeFilter,
-          search,
-        }),
-      ]);
-      setOverview(overviewData);
-      setInterventions(listData.interventions || []);
+      const [ov, list] = await Promise.all([getInterventionsOverview(), getInterventions({ ...filters, search })]);
+      setOverview(ov);
+      setInterventions(list.interventions || []);
     } catch (err) {
-      setError(err.message || 'Failed to retrieve intervention records.');
+      setError(err.message || 'Could not load interventions.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, search]);
 
   useEffect(() => {
-    loadData();
-  }, [statusFilter, priorityFilter, typeFilter, search]);
+    const timer = setTimeout(load, search ? 250 : 0);
+    return () => clearTimeout(timer);
+  }, [load, search]);
 
-  // If studentId came in via URL, pre-open create modal with their name
+  // Deep links: ?new=<studentId> opens the create form, ?id=<id> opens a case.
   useEffect(() => {
-    if (urlStudentId) {
-      setFormData((prev) => ({
-        ...prev,
-        studentId: urlStudentId,
-        studentName: urlStudentName || 'Student',
-      }));
-      setIsCreateModalOpen(true);
-    }
-  }, [urlStudentId, urlStudentName]);
+    const newFor = searchParams.get('new');
+    const id = searchParams.get('id');
+    if (newFor === null && !id) return;
+    if (newFor !== null && can(PERMISSIONS.INTERVENTION_CREATE)) setCreating({ studentId: newFor });
+    if (id) setViewingId(id);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams, can]);
 
-  const handleResetFilters = () => {
-    setStatusFilter('all');
-    setPriorityFilter('all');
-    setTypeFilter('');
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const quickFilter = (next) => setFilters({ ...DEFAULT_FILTERS, ...next });
+  const reset = () => {
     setSearch('');
+    setFilters(DEFAULT_FILTERS);
   };
-
-  const handleCreateSubmit = async (e) => {
-    e.preventDefault();
-    setCreateSubmitting(true);
-    setCreateSuccessMsg('');
-    try {
-      await createIntervention(formData);
-      setCreateSuccessMsg('Intervention record created successfully!');
-      setTimeout(() => {
-        setIsCreateModalOpen(false);
-        setCreateSuccessMsg('');
-        loadData();
-      }, 1000);
-    } catch (err) {
-      alert(`Error creating intervention: ${err.message}`);
-    } finally {
-      setCreateSubmitting(false);
-    }
-  };
-
-  const handleQuickStatusChange = async (caseId, newStatus) => {
-    try {
-      await updateIntervention(caseId, {
-        status: newStatus,
-        newNote: `Status updated to ${newStatus.replace('_', ' ').toUpperCase()} by ${user.name}.`,
-        author: user.name,
-      });
-      loadData();
-    } catch (err) {
-      alert(`Failed to update status: ${err.message}`);
-    }
-  };
-
-  const handleAddTimelineUpdate = async (e) => {
-    e.preventDefault();
-    if (!newUpdateNote.trim()) return;
-
-    setUpdateSubmitting(true);
-    try {
-      const result = await updateIntervention(selectedCase.id, {
-        status: updateStatusChoice || selectedCase.status,
-        newNote: newUpdateNote,
-        author: user.name,
-      });
-      setSelectedCase(result.updatedRecord);
-      setNewUpdateNote('');
-      loadData();
-    } catch (err) {
-      alert(`Error adding update: ${err.message}`);
-    } finally {
-      setUpdateSubmitting(false);
-    }
-  };
-
-  const isFiltered = statusFilter !== 'all' || priorityFilter !== 'all' || typeFilter || search;
+  const isFiltered = search || Object.entries(filters).some(([k, v]) => v !== DEFAULT_FILTERS[k]);
 
   return (
     <div>
-      {/* Page Header */}
       <div className="page-header">
         <div>
-          <h2 className="page-title">Intervention Management</h2>
+          <h2 className="page-title">Interventions</h2>
           <p className="page-description">
-            Schedule support interventions, assign academic counselors, track resolution statuses, and view chronological case histories.
+            Support actions with an owner and a due date. Track what was done and how it turned out.
           </p>
         </div>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Button
-            variant="primary"
-            size="md"
-            icon={PlusCircle}
-            onClick={() => setIsCreateModalOpen(true)}
-          >
-            Log New Intervention
+        {can(PERMISSIONS.INTERVENTION_CREATE) && (
+          <Button variant="primary" size="md" icon={PlusCircle} onClick={() => setCreating({ studentId: '' })}>
+            New Intervention
           </Button>
-        </div>
+        )}
       </div>
 
-      {/* Overview Stat Cards */}
       {overview && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-            gap: '16px',
-            marginBottom: '24px',
-          }}
-        >
-          <StatCard
-            title="Total Logged Cases"
-            value={overview.totalCases.toLocaleString()}
-            icon={ClipboardList}
-            iconColor="var(--color-primary)"
-            iconBg="var(--color-primary-subtle)"
-            badgeText="All Cases"
-            badgeType="default"
-            subtitle="Active term interventions"
-          />
-          <StatCard
-            title="Pending Cases"
-            value={overview.pendingCount}
-            icon={Clock}
-            iconColor="var(--color-accent)"
-            iconBg="var(--color-accent-subtle)"
-            badgeText="Needs Action"
-            badgeType="medium"
-            subtitle="Awaiting initial session"
-          />
-          <StatCard
-            title="In Progress"
-            value={overview.inProgressCount}
-            icon={UserCheck}
-            iconColor="#0284c7"
-            iconBg="#e0f2fe"
-            badgeText="Active"
-            badgeType="default"
-            subtitle="Counseling underway"
-          />
-          <StatCard
-            title="Resolved Cases"
-            value={overview.completedCount}
-            icon={CheckCircle2}
-            iconColor="var(--color-risk-low)"
-            iconBg="var(--color-risk-low-subtle)"
-            badgeText="Resolved"
-            badgeType="low"
-            subtitle="Successful outcomes"
-          />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+          <button type="button" style={cardButtonStyle} onClick={() => quickFilter({ status: 'active' })} aria-label="Show open interventions">
+            <StatCard title="Open" value={overview.open} icon={ClipboardList} iconColor="var(--color-primary)" iconBg="var(--color-primary-subtle)"
+              subtitle={`${overview.counts.OPEN} not started · ${overview.counts.IN_PROGRESS} in progress`} />
+          </button>
+          <button type="button" style={cardButtonStyle} onClick={() => quickFilter({ due: 'overdue' })} aria-label="Show overdue interventions">
+            <StatCard title="Overdue" value={overview.overdue} icon={AlertTriangle} iconColor="var(--color-risk-high)" iconBg="var(--color-risk-high-subtle)"
+              subtitle="open and past the due date" />
+          </button>
+          <button type="button" style={cardButtonStyle} onClick={() => quickFilter({ due: 'week' })} aria-label="Show interventions due this week">
+            <StatCard title="Due This Week" value={overview.dueThisWeek} icon={CalendarClock} iconColor="var(--color-risk-medium)" iconBg="var(--color-risk-medium-subtle)"
+              subtitle="next 7 days" />
+          </button>
+          <button type="button" style={cardButtonStyle} onClick={() => quickFilter({ assignedTo: 'me' })} aria-label="Show interventions assigned to me">
+            <StatCard title="Assigned to Me" value={overview.mine} icon={UserCheck} iconColor="#0369a1" iconBg="#e0f2fe" subtitle="open, you are the owner" />
+          </button>
+          <button type="button" style={cardButtonStyle} onClick={() => quickFilter({ status: 'COMPLETED' })} aria-label="Show completed interventions">
+            <StatCard title="Completed" value={overview.counts.COMPLETED} icon={CheckCircle2} iconColor="var(--color-risk-low)" iconBg="var(--color-risk-low-subtle)"
+              subtitle={`${overview.counts.CANCELLED} cancelled`} />
+          </button>
         </div>
       )}
 
-      {/* Filter and Search Bar Toolbar */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
-        {/* Status Navigation Tabs */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            borderBottom: '1px solid var(--color-border-subtle)',
-            paddingBottom: '14px',
-            marginBottom: '16px',
-            overflowX: 'auto',
-          }}
-        >
-          <button
-            onClick={() => setStatusFilter('all')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: statusFilter === 'all' ? 'var(--color-primary)' : 'var(--color-bg-muted)',
-              color: statusFilter === 'all' ? '#ffffff' : 'var(--color-text-secondary)',
-            }}
-          >
-            All Cases ({overview ? overview.totalCases : 0})
-          </button>
-
-          <button
-            onClick={() => setStatusFilter('pending')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: statusFilter === 'pending' ? '#b45309' : '#fef3c7',
-              color: statusFilter === 'pending' ? '#ffffff' : '#92400e',
-            }}
-          >
-            Pending ({overview ? overview.pendingCount : 0})
-          </button>
-
-          <button
-            onClick={() => setStatusFilter('in_progress')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: statusFilter === 'in_progress' ? '#0284c7' : '#e0f2fe',
-              color: statusFilter === 'in_progress' ? '#ffffff' : '#0369a1',
-            }}
-          >
-            In Progress ({overview ? overview.inProgressCount : 0})
-          </button>
-
-          <button
-            onClick={() => setStatusFilter('completed')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: statusFilter === 'completed' ? 'var(--color-risk-low)' : 'var(--color-risk-low-subtle)',
-              color: statusFilter === 'completed' ? '#ffffff' : 'var(--color-risk-low)',
-            }}
-          >
-            Completed ({overview ? overview.completedCount : 0})
-          </button>
+      <div className="card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search student, code or owner..." style={{ maxWidth: '260px' }} />
+          <select className="filter-select" value={filters.status} onChange={(e) => setFilter('status', e.target.value)} aria-label="Filter by status">
+            <option value="active">Open &amp; in progress</option>
+            <option value="">All statuses</option>
+            {INTERVENTION_STATUSES.map((s) => <option key={s} value={s}>{INTERVENTION_STATUS_LABELS[s]}</option>)}
+          </select>
+          <select className="filter-select" value={filters.category} onChange={(e) => setFilter('category', e.target.value)} aria-label="Filter by concern">
+            <option value="">All concerns</option>
+            {CONCERN_CATEGORIES.map((c) => <option key={c} value={c}>{CONCERN_CATEGORY_LABELS[c]}</option>)}
+          </select>
+          <select className="filter-select" value={filters.priority} onChange={(e) => setFilter('priority', e.target.value)} aria-label="Filter by priority">
+            <option value="">Any priority</option>
+            {INTERVENTION_PRIORITIES.slice().reverse().map((p) => <option key={p} value={p}>{INTERVENTION_PRIORITY_LABELS[p]}</option>)}
+          </select>
+          <select className="filter-select" value={filters.assignedTo} onChange={(e) => setFilter('assignedTo', e.target.value)} aria-label="Filter by owner">
+            <option value="">Anyone</option>
+            <option value="me">Assigned to me</option>
+          </select>
+          <select className="filter-select" value={filters.due} onChange={(e) => setFilter('due', e.target.value)} aria-label="Filter by due date">
+            <option value="">Any due date</option>
+            <option value="overdue">Overdue</option>
+            <option value="week">Due in the next 7 days</option>
+          </select>
+          {isFiltered && <Button variant="secondary" size="sm" icon={RotateCcw} onClick={reset}>Reset</Button>}
         </div>
-
-        {/* Search, Priority & Type Filters */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
-            <SearchBar
-              value={search}
-              onChange={setSearch}
-              placeholder="Search by student name, ID, counselor, or case ID..."
-              style={{ maxWidth: '320px' }}
-            />
-
-            {/* Priority Filter */}
-            <select
-              className="filter-select"
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              aria-label="Filter by priority"
-            >
-              <option value="all">All Priorities</option>
-              <option value="urgent">Urgent Priority</option>
-              <option value="high">High Priority</option>
-              <option value="normal">Normal Priority</option>
-            </select>
-
-            {/* Type Filter */}
-            <select
-              className="filter-select"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              aria-label="Filter by intervention type"
-            >
-              <option value="">All Intervention Types</option>
-              <option value="Academic Counseling">Academic Counseling</option>
-              <option value="Attendance Warning & Parent Outreach">Attendance Warning & Parent Outreach</option>
-              <option value="Peer Tutoring Assigned">Peer Tutoring</option>
-              <option value="Remedial Classes">Remedial Classes</option>
-            </select>
-
-            {isFiltered && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={RotateCcw}
-                onClick={handleResetFilters}
-                title="Reset all filters"
-              >
-                Reset
-              </Button>
-            )}
-          </div>
-
-          <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-            Showing {interventions.length} intervention record{interventions.length === 1 ? '' : 's'}
-          </div>
+        <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+          {interventions.length} intervention{interventions.length === 1 ? '' : 's'}
         </div>
       </div>
 
-      {/* Main Intervention Roster Table & States */}
-      {loading && <LoadingState message="Retrieving intervention cases and action histories..." />}
-
-      {!loading && error && (
-        <ErrorState
-          title="Intervention Service Error"
-          message={error}
-          onRetry={loadData}
-        />
+      {notice && (
+        <div className="alert alert-success" role="status" style={{ marginBottom: '16px' }}>
+          <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+          <span>{notice}</span>
+        </div>
       )}
 
+      {loading && interventions.length === 0 && <LoadingState message="Loading interventions..." />}
+      {!loading && error && <ErrorState title="Unable to Load Interventions" message={error} onRetry={load} />}
       {!loading && !error && interventions.length === 0 && (
         <EmptyState
-          title="No Interventions Found"
-          message="No cases matched your active status, priority, or search filters."
-          actionLabel="Clear Filters"
-          onAction={handleResetFilters}
+          icon={ClipboardList}
+          title={isFiltered ? 'No Interventions Match' : 'No Open Interventions'}
+          message={
+            isFiltered
+              ? 'Nothing matches these filters.'
+              : 'When a student needs support, create an intervention with an owner and a due date.'
+          }
+          actionLabel={isFiltered ? 'Reset Filters' : can(PERMISSIONS.INTERVENTION_CREATE) ? 'New Intervention' : undefined}
+          onAction={isFiltered ? reset : () => setCreating({ studentId: '' })}
         />
       )}
 
-      {!loading && !error && interventions.length > 0 && (
-        <div className="card">
+      {!error && interventions.length > 0 && (
+        <div className="card" style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Case ID & Scheduled Date</th>
-                  <th>Student Info</th>
-                  <th>Intervention Type & Counselor</th>
-                  <th>Priority</th>
-                  <th>Current Status</th>
-                  <th>Counselor Remarks / Action Plan</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>Student</th>
+                  <th>Concern</th>
+                  <th>Owner</th>
+                  <th>Due</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}></th>
                 </tr>
               </thead>
               <tbody>
-                {interventions.map((item) => (
-                  <tr key={item.id}>
-                    {/* Case ID & Date */}
+                {interventions.map((i) => (
+                  <tr key={i.id} className={i.isOverdue ? 'row-overdue' : undefined}>
                     <td>
-                      <div style={{ fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                        {item.id}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                        Due: {item.scheduledDate}
-                      </div>
-                    </td>
-
-                    {/* Student Info */}
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{item.studentName}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                        {item.studentId} • {item.department} (Sem {item.semester})
-                      </div>
-                    </td>
-
-                    {/* Type & Counselor */}
-                    <td>
-                      <div style={{ fontWeight: 500, fontSize: '13px' }}>{item.type}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                        Counselor: {item.counselorName}
-                      </div>
-                    </td>
-
-                    {/* Priority Badge */}
-                    <td>
-                      <Badge type="priority" value={item.priority} />
-                    </td>
-
-                    {/* Status Badge & Quick Status Selector */}
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <Badge type="status" value={item.status} />
-
-                        <select
-                          value={item.status}
-                          onChange={(e) => handleQuickStatusChange(item.id, e.target.value)}
-                          style={{
-                            fontSize: '11px',
-                            padding: '2px 6px',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--color-border)',
-                            backgroundColor: 'var(--color-bg-surface)',
-                            cursor: 'pointer',
-                            outline: 'none',
-                          }}
-                          aria-label={`Change status for case ${item.id}`}
-                        >
-                          <option value="pending">Mark Pending</option>
-                          <option value="in_progress">Mark In Progress</option>
-                          <option value="completed">Mark Completed</option>
-                        </select>
-                      </div>
-                    </td>
-
-                    {/* Counselor Remarks Preview */}
-                    <td style={{ maxWidth: '260px', fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.45 }}>
-                      {item.notes}
-                    </td>
-
-                    {/* Actions */}
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={History}
-                          onClick={() => {
-                            setSelectedCase(item);
-                            setUpdateStatusChoice(item.status);
-                          }}
-                          title="View case timeline and progress history"
-                        >
-                          Timeline
-                        </Button>
-
-                        <Link to={`/students/${item.studentId}`}>
-                          <Button variant="outline" size="sm" icon={ExternalLink} title="View student profile">
-                            Profile
-                          </Button>
+                      {i.student ? (
+                        <Link to={`/students/${i.studentId}`} style={{ fontWeight: 600, color: 'var(--color-primary-dark)', textDecoration: 'none' }}>
+                          {i.student.fullName}
                         </Link>
+                      ) : (
+                        <span style={{ fontWeight: 600 }}>{i.studentId}</span>
+                      )}
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                        {i.student && `${i.student.studentCode} · ${formatClass(i.student.grade, i.student.section)}`}
                       </div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: '13px' }}>{CONCERN_CATEGORY_LABELS[i.category]}</div>
+                      <Badge type="priority" value={i.priority} />
+                    </td>
+                    <td style={{ fontSize: '13px' }}>{i.assignedToName || 'Unassigned'}</td>
+                    <td style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>
+                      {i.isOpen ? (
+                        <>
+                          <div style={{ fontWeight: i.isOverdue ? 700 : 500, color: i.isOverdue ? 'var(--color-risk-high)' : 'inherit' }}>
+                            {formatDate(i.dueDate)}
+                          </div>
+                          {i.isOverdue && (
+                            <div style={{ fontSize: '11px', color: 'var(--color-risk-high)' }}>
+                              {i.daysOverdue} day{i.daysOverdue === 1 ? '' : 's'} overdue
+                            </div>
+                          )}
+                          {!i.isOverdue && i.followUpDate && (
+                            <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>follow-up {formatDate(i.followUpDate)}</div>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--color-text-secondary)' }}>Closed {formatDate(i.updatedAt)}</span>
+                      )}
+                    </td>
+                    <td><Badge type="status" value={i.status} /></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Button variant="outline" size="sm" onClick={() => setViewingId(i.id)}>
+                        {i.isOpen ? 'Open' : 'View'}
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -516,283 +248,53 @@ export default function Interventions() {
         </div>
       )}
 
-      {/* Modal 1: Create New Intervention */}
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title="Log New Student Intervention Case"
-        footer={
-          <>
-            <Button variant="secondary" size="md" onClick={() => setIsCreateModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              type="submit"
-              onClick={handleCreateSubmit}
-              disabled={createSubmitting || !formData.studentName || !formData.notes}
-            >
-              {createSubmitting ? 'Creating Case...' : 'Schedule Intervention'}
-            </Button>
-          </>
-        }
-      >
-        <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {createSuccessMsg && (
-            <div
-              style={{
-                padding: '10px 14px',
-                backgroundColor: 'var(--color-risk-low-subtle)',
-                color: 'var(--color-risk-low)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontWeight: 600,
-              }}
-            >
-              <CheckCircle2 size={16} />
-              {createSuccessMsg}
-            </div>
-          )}
+      {creating && (
+        <InterventionFormModal
+          initialStudentId={creating.studentId}
+          onClose={() => setCreating(null)}
+          onSaved={(saved) => {
+            setCreating(null);
+            setNotice(`Created an intervention for ${saved.student?.fullName ?? 'the student'}, owned by ${saved.assignedToName}.`);
+            load();
+          }}
+        />
+      )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="studentId">Student ID *</label>
-              <input
-                id="studentId"
-                className="form-input"
-                type="text"
-                required
-                value={formData.studentId}
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="studentName">Student Name *</label>
-              <input
-                id="studentName"
-                className="form-input"
-                type="text"
-                required
-                value={formData.studentName}
-                onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
-              />
-            </div>
-          </div>
+      {viewingId && !editing && (
+        <InterventionDetailModal
+          interventionId={viewingId}
+          onClose={() => setViewingId(null)}
+          onEdit={(item) => setEditing(item)}
+          onChanged={(updated, message) => {
+            setNotice(`${updated.student?.fullName ?? updated.id}: ${message}`);
+            load();
+          }}
+        />
+      )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="type">Intervention Type</label>
-              <select
-                id="type"
-                className="form-select"
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              >
-                <option value="Academic Counseling">Academic Counseling</option>
-                <option value="Attendance Warning & Parent Outreach">Attendance Warning & Parent Outreach</option>
-                <option value="Remedial Classes">Remedial Classes</option>
-                <option value="Peer Tutoring Assigned">Peer Tutoring</option>
-                <option value="Psychological Wellbeing">Psychological Wellbeing</option>
-                <option value="Financial Aid Review">Financial Aid Review</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="priority">Priority Level</label>
-              <select
-                id="priority"
-                className="form-select"
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-              >
-                <option value="urgent">Urgent</option>
-                <option value="high">High</option>
-                <option value="normal">Normal</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="counselorName">Assigned Counselor *</label>
-              <input
-                id="counselorName"
-                className="form-input"
-                type="text"
-                required
-                value={formData.counselorName}
-                onChange={(e) => setFormData({ ...formData, counselorName: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="scheduledDate">Scheduled Date</label>
-              <input
-                id="scheduledDate"
-                className="form-input"
-                type="date"
-                required
-                value={formData.scheduledDate}
-                onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="notes">Initial Assessment & Counselor Notes *</label>
-            <textarea
-              id="notes"
-              className="form-input"
-              rows={3}
-              required
-              placeholder="Outline the diagnostic reasons, planned remedial steps, or meeting agenda..."
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              style={{ resize: 'vertical' }}
-            />
-          </div>
-        </form>
-      </Modal>
-
-      {/* Modal 2: Case Timeline & History Viewer */}
-      {selectedCase && (
-        <Modal
-          isOpen={Boolean(selectedCase)}
-          onClose={() => setSelectedCase(null)}
-          title={`Intervention Case: ${selectedCase.id} • ${selectedCase.studentName}`}
-          footer={
-            <Button variant="secondary" size="md" onClick={() => setSelectedCase(null)}>
-              Close Timeline
-            </Button>
-          }
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {/* Header Summary */}
-            <div
-              style={{
-                padding: '14px 16px',
-                backgroundColor: 'var(--color-bg-muted)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '10px',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '14px' }}>{selectedCase.type}</div>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                  Student ID: {selectedCase.studentId} • Counselor: {selectedCase.counselorName}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Badge type="priority" value={selectedCase.priority} />
-                <Badge type="status" value={selectedCase.status} />
-              </div>
-            </div>
-
-            {/* Chronological History Log */}
-            <div>
-              <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '12px' }}>
-                Chronological Case Progression Log
-              </h4>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {selectedCase.history && selectedCase.history.length > 0 ? (
-                  selectedCase.history.map((log, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        padding: '12px 14px',
-                        backgroundColor: 'var(--color-bg-surface)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 'var(--radius-sm)',
-                        borderLeft: '3px solid var(--color-primary)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-                        <span style={{ fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                          {log.action}
-                        </span>
-                        <span style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>
-                          {log.timestamp} • {log.author}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.45 }}>
-                        {log.note}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                    No recorded timeline events.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Append New Update / Note Form */}
-            <form
-              onSubmit={handleAddTimelineUpdate}
-              style={{
-                marginTop: '10px',
-                padding: '16px',
-                backgroundColor: 'var(--color-bg-muted)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-              }}
-            >
-              <h5 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                Add New Case Progress Note
-              </h5>
-
-              <textarea
-                className="form-input"
-                rows={2}
-                required
-                placeholder="Log notes from follow-up meeting, counseling progress, or resolution remarks..."
-                value={newUpdateNote}
-                onChange={(e) => setNewUpdateNote(e.target.value)}
-                style={{ resize: 'vertical' }}
-              />
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label htmlFor="updateStatusSelect" style={{ fontSize: '12px', fontWeight: 600 }}>Update Status:</label>
-                  <select
-                    id="updateStatusSelect"
-                    className="form-select"
-                    value={updateStatusChoice}
-                    onChange={(e) => setUpdateStatusChoice(e.target.value)}
-                    style={{ fontSize: '12px', padding: '4px 8px' }}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed (Resolved)</option>
-                  </select>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  type="submit"
-                  icon={Send}
-                  disabled={updateSubmitting || !newUpdateNote.trim()}
-                >
-                  {updateSubmitting ? 'Posting...' : 'Post Update'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </Modal>
+      {editing && (
+        <InterventionFormModal
+          intervention={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(saved) => {
+            setEditing(null);
+            setNotice(`Saved changes to ${saved.student?.fullName ?? saved.id}'s intervention.`);
+            load();
+          }}
+        />
       )}
     </div>
   );
 }
+
+const cardButtonStyle = {
+  padding: 0,
+  border: 'none',
+  background: 'none',
+  textAlign: 'left',
+  cursor: 'pointer',
+  font: 'inherit',
+  color: 'inherit',
+  display: 'block',
+  width: '100%',
+};

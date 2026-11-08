@@ -8,6 +8,7 @@ import {
   BookOpen,
   AlertTriangle,
   ClipboardList,
+  UserCog,
   LogOut,
   X,
 } from 'lucide-react';
@@ -55,6 +56,12 @@ export default function Sidebar({ isOpen, onClose }) {
       permission: PERMISSIONS.INTERVENTIONS_VIEW,
       label: 'Interventions',
       icon: ClipboardList,
+    },
+    {
+      to: '/staff',
+      permission: PERMISSIONS.STAFF_VIEW,
+      label: 'Staff',
+      icon: UserCog,
     },
   ].filter((item) => can(item.permission));
 

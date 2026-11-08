@@ -1,4 +1,4 @@
-import { summarizeAttendance, averagePercentage, toPercentage } from '@udaan/shared';
+import { summarizeAttendance, averagePercentage, toPercentage, isInterventionOverdue } from '@udaan/shared';
 
 import { apiClient, ApiError, USE_MOCKS, mockDelay, buildQuery } from './api.js';
 import { mockRecordsForStudent } from './attendanceService.js';
@@ -7,6 +7,7 @@ import { mockMarksForStudent } from '../data/mockAcademicsData.js';
 import { mockRiskAssessments, recalculateMockRisk, needsReview } from '../data/mockRiskStore.js';
 import { mockInterventionsList } from '../data/mockInterventionsData.js';
 import { STUDENTS_PAGE_SIZE, STUDENT_STATUS } from '../constants/students.js';
+import { todayISO } from '../utils/formatters.js';
 
 /* -------------------------------------------------------------------------- */
 /* Mock helpers                                                               */
@@ -137,17 +138,23 @@ export async function getStudentSummary(id) {
     recent: marks,
   };
 
+  // Summary rows only: descriptions and history stay on GET /interventions/:id.
+  const today = todayISO();
   const interventions = mockInterventionsList
     .filter((i) => i.studentId === id)
     .map((i) => ({
       id: i.id,
-      date: i.createdDate,
-      type: i.type,
-      counselor: i.counselorName,
+      category: i.category,
       priority: i.priority,
       status: i.status,
-      notes: i.notes,
-    }));
+      dueDate: i.dueDate,
+      followUpDate: i.followUpDate,
+      assignedToName: i.assignedToName,
+      createdAt: i.createdAt,
+      outcome: i.outcome,
+      isOverdue: isInterventionOverdue(i, today),
+    }))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const assessment = mockRiskAssessments.get(id);
   const risk = assessment ? { ...assessment, needsReview: needsReview(assessment) } : null;

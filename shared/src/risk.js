@@ -24,11 +24,11 @@
  */
 import { summarizeAttendance, ATTENDANCE_THRESHOLDS } from './attendance.js';
 import { calculateAcademicDecline, ACADEMIC_DECLINE_THRESHOLDS } from './academics.js';
+import { isInterventionOverdue } from './interventions.js';
 
 export const RISK_CATEGORIES = ['LOW', 'MEDIUM', 'HIGH', 'INSUFFICIENT_DATA'];
 export const DATA_STATUSES = ['COMPLETE', 'PROVISIONAL', 'INSUFFICIENT_DATA'];
 export const MIN_ELIGIBLE_SCHOOL_DAYS = 10;
-const OPEN_INTERVENTION_STATUSES = ['OPEN', 'IN_PROGRESS'];
 
 export const RISK_CATEGORY_BANDS = Object.freeze({ medium: 25, high: 50 });
 
@@ -162,10 +162,7 @@ export function assessStudentRisk({
 }) {
   const att = summarizeAttendance(attendance);
   const decline = calculateAcademicDecline(marks);
-  const todayKey = String(today).slice(0, 10);
-  const overdueInterventions = interventions.filter(
-    (i) => OPEN_INTERVENTION_STATUSES.includes(i.status) && i.dueDate && String(i.dueDate).slice(0, 10) < todayKey
-  ).length;
+  const overdueInterventions = interventions.filter((i) => isInterventionOverdue(i, today)).length;
 
   const indicators = {
     attendancePercentage: att.attendancePercentage,
