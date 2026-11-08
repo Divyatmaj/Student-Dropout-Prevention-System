@@ -1,142 +1,100 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  CalendarCheck,
-  PlusCircle,
-  RotateCcw,
-  AlertTriangle,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  FileText,
-  Filter,
-  ExternalLink,
-  Users,
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { CalendarCheck, ClipboardCheck, AlertTriangle, TrendingDown, Users, Info } from 'lucide-react';
+import { ATTENDANCE_THRESHOLDS } from '@udaan/shared';
 
 import StatCard from '../components/common/StatCard.jsx';
-import Badge from '../components/common/Badge.jsx';
-import Button from '../components/common/Button.jsx';
-import SearchBar from '../components/common/SearchBar.jsx';
-import Modal from '../components/common/Modal.jsx';
-import LoadingState from '../components/common/LoadingState.jsx';
 import ErrorState from '../components/common/ErrorState.jsx';
-import EmptyState from '../components/common/EmptyState.jsx';
+import LoadingState from '../components/common/LoadingState.jsx';
+import ClassRegister from '../components/attendance/ClassRegister.jsx';
+import AttendanceRecords from '../components/attendance/AttendanceRecords.jsx';
 import '../components/common/common.css';
 
-import {
-  getAttendanceOverview,
-  getAttendanceRecords,
-  recordAttendance,
-} from '../services/attendanceService.js';
+import { getAttendanceOverview } from '../services/attendanceService.js';
+import { useAuth } from '../hooks/useAuth.js';
+import { PERMISSIONS } from '../utils/permissions.js';
+import { formatClass, formatDate, formatPercent, attendanceTone } from '../utils/formatters.js';
+
+const PERIODS = [
+  { days: 7, label: 'Last 7 days' },
+  { days: 30, label: 'Last 30 days' },
+  { days: 90, label: 'Last 90 days' },
+];
+
+function daysAgo(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 export default function Attendance() {
+  const { can } = useAuth();
+  const canRecord = can(PERMISSIONS.ATTENDANCE_RECORD);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tabs = [
+    ...(canRecord ? [{ id: 'register', label: 'Take Attendance' }] : []),
+    { id: 'records', label: 'Records' },
+    { id: 'overview', label: 'Class Overview' },
+  ];
+  const requestedTab = searchParams.get('tab');
+  const activeTab = tabs.some((t) => t.id === requestedTab) ? requestedTab : tabs[0].id;
+
+  const [periodDays, setPeriodDays] = useState(30);
   const [overview, setOverview] = useState(null);
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState(null);
 
-  // Filter States
-  const [studentSearch, setStudentSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
-  const [courseFilter, setCourseFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-
-  // Modal State for logging attendance
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-  const [formData, setFormData] = useState({
-    studentId: 'STU-1042',
-    studentName: 'Aarav Sharma',
-    department: 'Computer Science',
-    semester: '4',
-    course: 'Data Structures',
-    facultyName: 'Dr. N. Kulkarni',
-    date: new Date().toISOString().split('T')[0],
-    status: 'Present',
-    durationHours: '2',
-    remarks: '',
-  });
-
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
+  const loadOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    setOverviewError(null);
     try {
-      const [overviewData, recordsData] = await Promise.all([
-        getAttendanceOverview(),
-        getAttendanceRecords({
-          date: dateFilter,
-          student: studentSearch,
-          course: courseFilter,
-          status: statusFilter,
-        }),
-      ]);
-      setOverview(overviewData);
-      setRecords(recordsData.records || []);
+      setOverview(await getAttendanceOverview({ from: daysAgo(periodDays) }));
     } catch (err) {
-      setError(err.message || 'Failed to retrieve attendance logs.');
+      setOverviewError(err.message || 'Could not load the attendance overview.');
     } finally {
-      setLoading(false);
+      setOverviewLoading(false);
     }
-  };
+  }, [periodDays]);
 
   useEffect(() => {
-    loadData();
-  }, [studentSearch, dateFilter, courseFilter, statusFilter]);
+    loadOverview();
+  }, [loadOverview]);
 
-  const handleResetFilters = () => {
-    setStudentSearch('');
-    setDateFilter('');
-    setCourseFilter('');
-    setStatusFilter('');
+  const selectTab = (id) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', id);
+    next.delete('search');
+    setSearchParams(next, { replace: true });
   };
-
-  const handleRecordAttendance = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setSuccessMsg('');
-    try {
-      await recordAttendance(formData);
-      setSuccessMsg('Attendance record logged successfully!');
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setSuccessMsg('');
-        loadData();
-      }, 1000);
-    } catch (err) {
-      alert(`Error logging attendance: ${err.message}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const isFiltered = studentSearch || dateFilter || courseFilter || statusFilter;
 
   return (
     <div>
-      {/* Page Header */}
       <div className="page-header">
         <div>
-          <h2 className="page-title">Attendance Monitoring</h2>
+          <h2 className="page-title">Attendance</h2>
           <p className="page-description">
-            Monitor institutional attendance percentages, lecture session logs, and chronic absenteeism triggers.
+            Take the daily class register, correct entries and spot students whose attendance needs a
+            conversation.
           </p>
         </div>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Button
-            variant="primary"
-            size="md"
-            icon={PlusCircle}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Log Attendance Session
-          </Button>
-        </div>
+        <select
+          className="filter-select"
+          value={periodDays}
+          onChange={(e) => setPeriodDays(Number(e.target.value))}
+          aria-label="Overview period"
+        >
+          {PERIODS.map((p) => (
+            <option key={p.days} value={p.days}>{p.label}</option>
+          ))}
+        </select>
       </div>
 
-      {/* Attendance Overview Stat Cards */}
+      {/* Summary cards */}
+      {overviewError && !overview && (
+        <ErrorState title="Unable to Load Attendance Summary" message={overviewError} onRetry={loadOverview} />
+      )}
       {overview && (
         <div
           style={{
@@ -144,452 +102,193 @@ export default function Attendance() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
             gap: '16px',
             marginBottom: '24px',
+            opacity: overviewLoading ? 0.6 : 1,
+            transition: 'opacity 0.2s',
           }}
+          aria-busy={overviewLoading}
         >
           <StatCard
-            title="Institutional Average"
-            value={`${overview.overallRate}%`}
+            title="School Attendance"
+            value={formatPercent(overview.schoolAttendanceRate)}
             icon={CalendarCheck}
-            iconColor="var(--color-primary)"
-            iconBg="var(--color-primary-subtle)"
-            badgeText="Target: > 75%"
-            badgeType="low"
-            subtitle={`${overview.totalSessionsLogged} total sessions`}
+            badgeText={`Goal: ${ATTENDANCE_THRESHOLDS.moderate}%+`}
+            badgeType={overview.schoolAttendanceRate >= ATTENDANCE_THRESHOLDS.moderate ? 'low' : 'medium'}
+            subtitle={`${overview.activeStudents} active students`}
           />
           <StatCard
-            title="Safe Cohort (> 75%)"
-            value={overview.cohortSummary.safeCount.toLocaleString()}
-            icon={CheckCircle2}
-            iconColor="var(--color-risk-low)"
-            iconBg="var(--color-risk-low-subtle)"
-            badgeText={`${overview.cohortSummary.safePercentage}%`}
-            badgeType="low"
-            subtitle="Compliant students"
+            title="Latest Register"
+            value={overview.latestDay ? `${overview.latestDay.marked}/${overview.latestDay.total}` : '—'}
+            icon={ClipboardCheck}
+            iconColor="#0369a1"
+            iconBg="#e0f2fe"
+            subtitle={overview.latestDay ? `Students marked on ${formatDate(overview.latestDay.date)}` : 'Nothing recorded yet'}
           />
           <StatCard
-            title="Warning Zone (65%–75%)"
-            value={overview.cohortSummary.warningCount.toLocaleString()}
-            icon={Clock}
-            iconColor="var(--color-risk-medium)"
-            iconBg="var(--color-risk-medium-subtle)"
-            badgeText={`${overview.cohortSummary.warningPercentage}%`}
-            badgeType="medium"
-            subtitle="Proactive check-in needed"
-          />
-          <StatCard
-            title="Critical Absenteeism (< 65%)"
-            value={overview.cohortSummary.criticalCount.toLocaleString()}
-            icon={AlertTriangle}
+            title={`Below ${ATTENDANCE_THRESHOLDS.low}%`}
+            value={overview.studentsBelowThreshold}
+            icon={TrendingDown}
             iconColor="var(--color-risk-high)"
             iconBg="var(--color-risk-high-subtle)"
-            badgeText={`${overview.cohortSummary.criticalPercentage}%`}
             badgeType="high"
-            subtitle="Immediate intervention"
+            badgeText="+30 risk points"
+            subtitle="students this period"
+          />
+          <StatCard
+            title="3+ Absences in a Row"
+            value={overview.studentsWithAbsenceStreak}
+            icon={AlertTriangle}
+            iconColor="var(--color-risk-medium)"
+            iconBg="var(--color-risk-medium-subtle)"
+            badgeType="medium"
+            badgeText="Follow up"
+            subtitle="ending on latest recorded day"
           />
         </div>
       )}
 
-      {/* Department Attendance Benchmarks */}
-      {overview && overview.departmentRates && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header">
-            <div>
-              <h3 className="card-title">
-                <Users size={18} color="var(--color-primary)" />
-                Department Attendance Benchmarks
-              </h3>
-              <p className="card-subtitle">
-                Institutional minimum retention requirement is 75.0%
-              </p>
-            </div>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-              Benchmark: 75.0%
-            </span>
-          </div>
+      <div className="tabs" role="tablist" aria-label="Attendance sections">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            className="tab"
+            id={`tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            aria-controls={`panel-${tab.id}`}
+            onClick={() => selectTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-          <div className="card-body">
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '20px',
-              }}
-            >
-              {overview.departmentRates.map((dept, idx) => (
-                <div key={idx}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: '13px',
-                      marginBottom: '6px',
-                    }}
-                  >
-                    <span style={{ fontWeight: 600 }}>{dept.department}</span>
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        color:
-                          dept.rate >= 75
-                            ? 'var(--color-risk-low)'
-                            : 'var(--color-risk-medium)',
-                      }}
-                    >
-                      {dept.rate}%
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '8px',
-                      backgroundColor: 'var(--color-bg-muted)',
-                      borderRadius: 'var(--radius-full)',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: `${dept.rate}%`,
-                        height: '100%',
-                        backgroundColor:
-                          dept.rate >= 75
-                            ? 'var(--color-risk-low)'
-                            : 'var(--color-risk-medium)',
-                        borderRadius: 'var(--radius-full)',
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+      <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
+        {activeTab === 'register' && <ClassRegister onSaved={loadOverview} />}
+        {activeTab === 'records' && (
+          <AttendanceRecords initialSearch={searchParams.get('search') || ''} onChanged={loadOverview} />
+        )}
+        {activeTab === 'overview' && (
+          <ClassOverview overview={overview} loading={overviewLoading && !overview} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ClassOverview({ overview, loading }) {
+  if (loading || !overview) return <LoadingState message="Loading class overview..." />;
+
+  return (
+    <>
+    <div className="grid-2" style={{ marginBottom: '24px' }}>
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3 className="card-title">
+              <Users size={18} color="var(--color-primary)" />
+              Attendance by Class
+            </h3>
+            <p className="card-subtitle">
+              {formatDate(overview.period.from)} – {formatDate(overview.period.to)}
+            </p>
           </div>
         </div>
-      )}
-
-      {/* Filter and Search Bar Toolbar */}
-      <div
-        className="card"
-        style={{
-          padding: '16px 20px',
-          marginBottom: '24px',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: '12px',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
-          {/* Search by Student */}
-          <SearchBar
-            value={studentSearch}
-            onChange={setStudentSearch}
-            placeholder="Search student by name or ID..."
-            style={{ maxWidth: '280px' }}
-          />
-
-          {/* Filter by Date */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <input
-              type="date"
-              className="filter-select"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              aria-label="Filter by session date"
-              style={{ minWidth: '150px' }}
-            />
-          </div>
-
-          {/* Filter by Course */}
-          <select
-            className="filter-select"
-            value={courseFilter}
-            onChange={(e) => setCourseFilter(e.target.value)}
-            aria-label="Filter by course"
-          >
-            <option value="">All Courses</option>
-            <option value="Data Structures">Data Structures</option>
-            <option value="Database Management">Database Management</option>
-            <option value="Digital Signal Processing">Digital Signal Processing</option>
-            <option value="Computer Networks">Computer Networks</option>
-            <option value="Operating Systems">Operating Systems</option>
-            <option value="Thermodynamics">Thermodynamics</option>
-            <option value="Structural Mechanics">Structural Mechanics</option>
-          </select>
-
-          {/* Filter by Status */}
-          <select
-            className="filter-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter by attendance status"
-          >
-            <option value="">All Statuses</option>
-            <option value="Present">Present</option>
-            <option value="Absent">Absent</option>
-            <option value="Late">Late</option>
-            <option value="Excused">Excused</option>
-          </select>
-
-          {/* Reset Filters */}
-          {isFiltered && (
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={RotateCcw}
-              onClick={handleResetFilters}
-              title="Reset all filters"
-            >
-              Reset
-            </Button>
+        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {overview.classRates.length === 0 && (
+            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>No classes with active students.</p>
           )}
-        </div>
-
-        {/* Count Indicator */}
-        <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-          Showing {records.length} record{records.length === 1 ? '' : 's'}
+          {overview.classRates.map((cls) => (
+            <div key={`${cls.grade}-${cls.section}`}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 600 }}>
+                  {formatClass(cls.grade, cls.section)}{' '}
+                  <span style={{ fontWeight: 400, color: 'var(--color-text-secondary)' }}>
+                    · {cls.students} student{cls.students === 1 ? '' : 's'}
+                  </span>
+                </span>
+                <span style={{ fontWeight: 700, color: attendanceTone(cls.attendanceRate) }}>
+                  {cls.attendanceRate === null ? 'No records' : formatPercent(cls.attendanceRate)}
+                </span>
+              </div>
+              <div style={{ height: '8px', backgroundColor: 'var(--color-bg-muted)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${cls.attendanceRate ?? 0}%`,
+                    height: '100%',
+                    backgroundColor: attendanceTone(cls.attendanceRate),
+                    borderRadius: 'var(--radius-full)',
+                  }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Main Records Table & Conditional States */}
-      {loading && <LoadingState message="Retrieving lecture attendance records and logs..." />}
-
-      {!loading && error && (
-        <ErrorState
-          title="Attendance Service Error"
-          message={error}
-          onRetry={loadData}
-        />
-      )}
-
-      {!loading && !error && records.length === 0 && (
-        <EmptyState
-          title="No Attendance Logs Found"
-          message="No attendance sessions matched your active date, student, or course filters. Try widening your filter parameters."
-          actionLabel="Clear Filters"
-          onAction={handleResetFilters}
-        />
-      )}
-
-      {!loading && !error && records.length > 0 && (
-        <div className="card">
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Session Date & Time</th>
-                  <th>Student Info</th>
-                  <th>Course & Faculty</th>
-                  <th>Duration</th>
-                  <th>Attendance Status</th>
-                  <th>Remarks / Log Details</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((rec) => (
-                  <tr key={rec.id}>
-                    {/* Date & Time */}
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{rec.date}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                        {rec.time}
-                      </div>
-                    </td>
-
-                    {/* Student */}
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{rec.studentName}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                        {rec.studentId} • {rec.department} (Sem {rec.semester})
-                      </div>
-                    </td>
-
-                    {/* Course & Faculty */}
-                    <td>
-                      <div style={{ fontWeight: 500 }}>{rec.course}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                        {rec.facultyName}
-                      </div>
-                    </td>
-
-                    {/* Duration */}
-                    <td style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                      {rec.durationHours} hr(s)
-                    </td>
-
-                    {/* Status Badge */}
-                    <td>
-                      <Badge type="attendance" value={rec.status} />
-                    </td>
-
-                    {/* Remarks */}
-                    <td style={{ fontSize: '12px', color: 'var(--color-text-secondary)', maxWidth: '240px' }}>
-                      {rec.remarks || '—'}
-                    </td>
-
-                    {/* Action */}
-                    <td style={{ textAlign: 'right' }}>
-                      <Link to={`/students/${rec.studentId}`}>
-                        <Button variant="outline" size="sm" icon={ExternalLink}>
-                          Profile
-                        </Button>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3 className="card-title">
+              <AlertTriangle size={18} color="var(--color-risk-medium)" />
+              Students to Follow Up
+            </h3>
+            <p className="card-subtitle">
+              Attendance below {ATTENDANCE_THRESHOLDS.low}% or 3+ recorded absences in a row.
+            </p>
           </div>
         </div>
-      )}
-
-      {/* Log Attendance Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Log Lecture Attendance Session"
-        footer={
-          <>
-            <Button variant="secondary" size="md" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              type="submit"
-              onClick={handleRecordAttendance}
-              disabled={submitting || !formData.studentName || !formData.course}
-            >
-              {submitting ? 'Recording...' : 'Submit Attendance'}
-            </Button>
-          </>
-        }
-      >
-        <form onSubmit={handleRecordAttendance} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {successMsg && (
-            <div
-              style={{
-                padding: '10px 14px',
-                backgroundColor: 'var(--color-risk-low-subtle)',
-                color: 'var(--color-risk-low)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontWeight: 600,
-              }}
-            >
-              <CheckCircle2 size={16} />
-              {successMsg}
+        <div className="card-body">
+          {overview.attention.length === 0 ? (
+            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', textAlign: 'center', padding: '16px' }}>
+              No students currently meet these attendance concerns.
+            </p>
+          ) : (
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Attendance</th>
+                    <th style={{ whiteSpace: 'nowrap' }}>Absent in a row</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overview.attention.map((s) => (
+                    <tr key={s.studentId}>
+                      <td>
+                        <Link to={`/students/${s.studentId}`} style={{ fontWeight: 600, color: 'var(--color-primary-dark)', textDecoration: 'none' }}>
+                          {s.studentName}
+                        </Link>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                          {s.studentCode} · {formatClass(s.grade, s.section)}
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: 700, color: attendanceTone(s.attendancePercentage) }}>
+                        {formatPercent(s.attendancePercentage)}
+                      </td>
+                      <td style={{ fontWeight: 600, color: s.consecutiveAbsences >= 3 ? 'var(--color-risk-high)' : 'var(--color-text-secondary)' }}>
+                        {s.consecutiveAbsences} day{s.consecutiveAbsences === 1 ? '' : 's'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
+        </div>
+      </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="studentId">Student ID</label>
-              <input
-                id="studentId"
-                className="form-input"
-                type="text"
-                required
-                value={formData.studentId}
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="studentName">Student Name</label>
-              <input
-                id="studentName"
-                className="form-input"
-                type="text"
-                required
-                value={formData.studentName}
-                onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="course">Course Subject</label>
-              <input
-                id="course"
-                className="form-input"
-                type="text"
-                required
-                value={formData.course}
-                onChange={(e) => setFormData({ ...formData, course: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="facultyName">Instructor Name</label>
-              <input
-                id="facultyName"
-                className="form-input"
-                type="text"
-                value={formData.facultyName}
-                onChange={(e) => setFormData({ ...formData, facultyName: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="date">Session Date</label>
-              <input
-                id="date"
-                className="form-input"
-                type="date"
-                required
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="status">Attendance Status</label>
-              <select
-                id="status"
-                className="form-select"
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option value="Present">Present</option>
-                <option value="Absent">Absent</option>
-                <option value="Late">Late</option>
-                <option value="Excused">Excused</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="durationHours">Duration (Hours)</label>
-            <input
-              id="durationHours"
-              className="form-input"
-              type="number"
-              min="0.5"
-              step="0.5"
-              value={formData.durationHours}
-              onChange={(e) => setFormData({ ...formData, durationHours: e.target.value })}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="remarks">Remarks / Reason (Optional)</label>
-            <input
-              id="remarks"
-              className="form-input"
-              type="text"
-              placeholder="e.g. Unexcused absence, late due to bus delay, etc."
-              value={formData.remarks}
-              onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-            />
-          </div>
-        </form>
-      </Modal>
     </div>
+
+      <div className="alert alert-info">
+        <Info size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+        <span>
+          How attendance is calculated: <strong>late</strong> counts as attended, <strong>excused</strong> days
+          are left out of the percentage, and days with no record are never counted as absences.
+          Consecutive absences count recorded school days, not calendar days.
+        </span>
+      </div>
+    </>
   );
 }

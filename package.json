@@ -5,12 +5,14 @@
   "description": "Udaan - Student Retention & Early Intervention Platform",
   "type": "module",
   "workspaces": [
-    "client"
+    "client",
+    "shared"
   ],
   "scripts": {
     "dev": "npm run dev -w client",
     "build": "npm run build -w client",
-    "preview": "npm run preview -w client"
+    "preview": "npm run preview -w client",
+    "test": "npm run test --workspaces --if-present"
   },
   "engines": {
     "node": ">=20"

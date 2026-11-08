@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth.js';
 const routeTitleMap = {
   '/dashboard': 'Executive Overview',
   '/students': 'Students',
-  '/attendance': 'Attendance Records',
+  '/attendance': 'Attendance',
   '/academics': 'Academic Performance',
   '/risk': 'Risk Monitoring & Indicators',
   '/interventions': 'Intervention Management',

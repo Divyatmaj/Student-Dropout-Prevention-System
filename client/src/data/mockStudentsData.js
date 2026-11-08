@@ -1,9 +1,10 @@
 /**
  * Mock students for the Udaan web app (used only when VITE_USE_MOCKS=true).
  *
- * Shape matches the Udaan API `Student` resource. Fields after the comment
- * "computed by the API" are not stored on the student — the API joins them in
- * from attendance and the current risk assessment for list views.
+ * Shape matches the Udaan API `Student` resource. List responses also carry
+ * fields the API computes: `attendanceRate` (from attendance records) and
+ * `riskScore` / `riskCategory` / `topRiskReason` (from the current risk
+ * assessment).
  *
  * Contract:
  *   GET    /students?search=&grade=&section=&status=&riskCategory=&page=&limit=
@@ -36,8 +37,7 @@ export const mockStudentsList = [
     supportNotes: 'Family reported difficulty paying for transport after a job loss. Check whether bus pass support is available.',
     assignedTeacherId: CLASS_TEACHER.id,
     assignedTeacherName: CLASS_TEACHER.name,
-    // computed by the API
-    attendanceRate: 61.9,
+    // computed by the API (risk fields until risk rules are wired in)
     riskScore: 75,
     riskCategory: 'HIGH',
     topRiskReason: 'Attendance below 75% (61.9%)',
@@ -58,7 +58,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    attendanceRate: 66.7,
     riskScore: 55,
     riskCategory: 'HIGH',
     topRiskReason: 'Attendance below 75% (66.7%)',
@@ -79,7 +78,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: CLASS_TEACHER.id,
     assignedTeacherName: CLASS_TEACHER.name,
-    attendanceRate: 71.4,
     riskScore: 55,
     riskCategory: 'HIGH',
     topRiskReason: '5 consecutive absences',
@@ -100,7 +98,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    attendanceRate: 81.0,
     riskScore: 35,
     riskCategory: 'MEDIUM',
     topRiskReason: 'Average score dropped 20+ points',
@@ -121,7 +118,6 @@ export const mockStudentsList = [
     supportNotes: 'Works part-time at the family shop on weekday mornings.',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    attendanceRate: 81.0,
     riskScore: 25,
     riskCategory: 'MEDIUM',
     topRiskReason: 'Attendance between 75% and 85% (81.0%)',
@@ -142,7 +138,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: CLASS_TEACHER.id,
     assignedTeacherName: CLASS_TEACHER.name,
-    attendanceRate: 76.2,
     riskScore: 25,
     riskCategory: 'MEDIUM',
     topRiskReason: '3 consecutive absences',
@@ -163,7 +158,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    attendanceRate: 95.2,
     riskScore: 0,
     riskCategory: 'LOW',
     topRiskReason: null,
@@ -184,7 +178,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    attendanceRate: 90.5,
     riskScore: 0,
     riskCategory: 'LOW',
     topRiskReason: null,
@@ -205,7 +198,6 @@ export const mockStudentsList = [
     supportNotes: 'Joined mid-term from another district.',
     assignedTeacherId: CLASS_TEACHER.id,
     assignedTeacherName: CLASS_TEACHER.name,
-    attendanceRate: null,
     riskScore: null,
     riskCategory: 'INSUFFICIENT_DATA',
     topRiskReason: 'Not enough attendance or marks recorded yet',
@@ -226,68 +218,8 @@ export const mockStudentsList = [
     supportNotes: 'Family relocated to Pune in October 2026.',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    attendanceRate: 85.7,
     riskScore: null,
     riskCategory: null,
     topRiskReason: null,
   },
 ];
-
-function toLocalISODate(date) {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-/**
- * Build a deterministic list of recent school days (newest first) whose
- * attendance percentage matches `student.attendanceRate`, so the profile and
- * the list agree in mock mode. Late arrivals count as attended.
- */
-export function buildMockDailyAttendance(student, days = 21) {
-  if (student.attendanceRate === null || student.attendanceRate === undefined) {
-    // New admission — only a few days recorded so far.
-    return [
-      { date: '2026-11-06', status: 'PRESENT', note: '' },
-      { date: '2026-11-05', status: 'PRESENT', note: '' },
-      { date: '2026-11-04', status: 'LATE', note: 'Arrived 20 minutes late' },
-    ];
-  }
-
-  const dates = [];
-  const cursor = new Date('2026-11-06T00:00:00');
-  while (dates.length < days) {
-    const weekday = cursor.getDay();
-    if (weekday !== 0 && weekday !== 6) dates.push(toLocalISODate(cursor));
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  const statuses = Array(days).fill('PRESENT');
-  let absences = Math.round((days * (100 - student.attendanceRate)) / 100);
-
-  // Students flagged for a streak start their recent history with absences.
-  const streak = /(\d+) consecutive absences/.exec(student.topRiskReason || '');
-  const streakLength = streak ? Number(streak[1]) : 0;
-  for (let i = 0; i < streakLength && absences > 0; i += 1) {
-    statuses[i] = 'ABSENT';
-    absences -= 1;
-  }
-  if (streakLength < days) statuses[streakLength] = 'PRESENT'; // end the streak
-
-  // Spread the remaining absences evenly through the older days.
-  const firstFree = streakLength + 1;
-  const span = days - firstFree;
-  for (let n = 0; n < absences; n += 1) {
-    statuses[firstFree + Math.floor(((n + 0.5) * span) / absences)] = 'ABSENT';
-  }
-
-  // A few late arrivals (still counted as attended).
-  for (let i = firstFree + 2; i < days; i += 6) {
-    if (statuses[i] === 'PRESENT') statuses[i] = 'LATE';
-  }
-
-  return dates.map((date, i) => ({
-    date,
-    status: statuses[i],
-    note: statuses[i] === 'LATE' ? 'Arrived after assembly' : '',
-  }));
-}

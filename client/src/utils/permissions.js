@@ -38,6 +38,7 @@ const PERMISSION_ROLES = {
 
   // Attendance & academics
   ATTENDANCE_RECORD: ALL_STAFF,
+  ATTENDANCE_CORRECT_ANY: [SCHOOL_ADMIN, PRINCIPAL], // others may correct only their own entries
   ATTENDANCE_DELETE: [SCHOOL_ADMIN],
   ASSESSMENT_CREATE: ALL_STAFF,
   MARKS_RECORD: ALL_STAFF,
@@ -64,4 +65,13 @@ export function can(user, permission) {
   if (!user || !user.isActive) return false;
   const allowed = PERMISSION_ROLES[permission];
   return Boolean(allowed && allowed.includes(user.role));
+}
+
+/** Can this user correct a specific attendance record? */
+export function canCorrectAttendance(user, record) {
+  if (!record) return can(user, 'ATTENDANCE_RECORD');
+  return (
+    can(user, 'ATTENDANCE_CORRECT_ANY') ||
+    (can(user, 'ATTENDANCE_RECORD') && record.recordedById === user?.id)
+  );
 }

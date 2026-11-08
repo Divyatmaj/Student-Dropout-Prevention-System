@@ -12,7 +12,7 @@ transparent rule-based score, and track human-led interventions to completion.
 .
 ├── client/          Udaan web app (React 18 + Vite)
 ├── server/          Udaan API (Express + Prisma 7 + PostgreSQL)      (coming soon)
-├── shared/          Code shared by client and server, e.g. risk calculator (coming soon)
+├── shared/          Business rules shared by client and server (attendance metrics, risk rules)
 ├── api/             Vercel serverless entry that exposes the Udaan API (coming soon)
 ├── vercel.json      Single Vercel project: static frontend + /api function
 └── package.json     npm workspaces root
@@ -50,6 +50,18 @@ entirely on local mock data, so the API is not required yet.
 | `npm run dev`     | Start the web app dev server         |
 | `npm run build`   | Production build into `client/dist`  |
 | `npm run preview` | Preview the production build         |
+| `npm test`        | Run the unit tests in every workspace |
+
+## Attendance policy
+
+Udaan calculates attendance the same way in the web app and the API (see
+`shared/src/attendance.js`):
+
+- Each student has at most one record per school day: Present, Absent, Late or Excused.
+- **Late** counts as attended. **Excused** days are left out of the percentage.
+- A day with no record is never treated as an absence.
+- Attendance % = (present + late) ÷ (present + late + absent).
+- Consecutive absences count the latest *recorded* school days, not calendar days.
 
 ## Environment variables
 

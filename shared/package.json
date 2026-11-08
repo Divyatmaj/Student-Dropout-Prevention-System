@@ -1,0 +1,17 @@
+{
+  "name": "@udaan/shared",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Business rules shared by the Udaan web app and API (attendance metrics, risk rules).",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}

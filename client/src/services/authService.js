@@ -39,11 +39,20 @@ export async function getCurrentUser() {
   }
 
   await mockDelay(200);
-  const token = tokenStorage.get() || '';
-  const userId = token.startsWith(MOCK_TOKEN_PREFIX) ? token.slice(MOCK_TOKEN_PREFIX.length) : null;
-  const user = mockUsers.find((u) => u.id === userId && u.isActive);
+  const user = getMockSessionUser();
   if (!user) {
     throw new ApiError({ status: 401, code: 'UNAUTHORIZED', message: 'Your session has expired.' });
   }
   return { ...user };
+}
+
+/**
+ * Mock mode only: the user behind the stored mock token, or null.
+ * Lets mock services record "recorded by" the way the API will from the JWT.
+ */
+export function getMockSessionUser() {
+  const token = tokenStorage.get() || '';
+  const userId = token.startsWith(MOCK_TOKEN_PREFIX) ? token.slice(MOCK_TOKEN_PREFIX.length) : null;
+  const user = mockUsers.find((u) => u.id === userId && u.isActive);
+  return user ? { ...user } : null;
 }

@@ -1,5 +1,8 @@
+import { summarizeAttendance } from '@udaan/shared';
+
 import { apiClient, ApiError, USE_MOCKS, mockDelay, buildQuery } from './api.js';
-import { mockStudentsList, buildMockDailyAttendance } from '../data/mockStudentsData.js';
+import { mockRecordsForStudent } from './attendanceService.js';
+import { mockStudentsList } from '../data/mockStudentsData.js';
 import { mockAssessmentResults } from '../data/mockAcademicsData.js';
 import { mockInterventionsList } from '../data/mockInterventionsData.js';
 import { STUDENTS_PAGE_SIZE, STUDENT_STATUS } from '../constants/students.js';
@@ -32,33 +35,11 @@ function findMockStudent(id) {
   return student;
 }
 
-function summariseAttendance(records) {
-  const counts = { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 };
-  records.forEach((r) => {
-    counts[r.status] += 1;
-  });
-
-  let currentAbsenceStreak = 0;
-  for (const record of records) {
-    if (record.status !== 'ABSENT') break;
-    currentAbsenceStreak += 1;
-  }
-
-  // Excused days are left out of the denominator; late counts as attended.
-  const countedDays = records.length - counts.EXCUSED;
-  const attendanceRate = countedDays
-    ? Math.round(((counts.PRESENT + counts.LATE) / countedDays) * 1000) / 10
-    : null;
-
+/** Student plus the computed fields list views show (API joins these in). */
+function withComputedFields(student) {
   return {
-    attendanceRate,
-    recordedDays: records.length,
-    present: counts.PRESENT,
-    absent: counts.ABSENT,
-    late: counts.LATE,
-    excused: counts.EXCUSED,
-    currentAbsenceStreak,
-    recent: records.slice(0, 10),
+    ...student,
+    attendanceRate: summarizeAttendance(mockRecordsForStudent(student.id)).attendancePercentage,
   };
 }
 
@@ -106,7 +87,7 @@ export async function getStudents(filters = {}) {
   const start = (page - 1) * limit;
 
   return {
-    students: filtered.slice(start, start + limit),
+    students: filtered.slice(start, start + limit).map(withComputedFields),
     total: filtered.length,
     page,
     limit,
@@ -121,7 +102,7 @@ export async function getStudent(id) {
   if (!USE_MOCKS) return apiClient(`/students/${id}`);
 
   await mockDelay(250);
-  return { ...findMockStudent(id) };
+  return withComputedFields(findMockStudent(id));
 }
 
 /**
@@ -134,7 +115,11 @@ export async function getStudentSummary(id) {
   await mockDelay(350);
   const student = findMockStudent(id);
 
-  const attendance = summariseAttendance(buildMockDailyAttendance(student));
+  const attendanceRecords = mockRecordsForStudent(id).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const attendance = {
+    ...summarizeAttendance(attendanceRecords),
+    recent: attendanceRecords.slice(0, 10),
+  };
 
   const marks = mockAssessmentResults
     .filter((r) => r.studentId === id)
@@ -174,7 +159,7 @@ export async function getStudentSummary(id) {
     topReason: student.topRiskReason,
   };
 
-  return { student: { ...student }, attendance, academics, risk, interventions };
+  return { student: withComputedFields(student), attendance, academics, risk, interventions };
 }
 
 /**
@@ -195,13 +180,12 @@ export async function createStudent(payload) {
     status: STUDENT_STATUS.ACTIVE,
     assignedTeacherId: null,
     assignedTeacherName: null,
-    attendanceRate: null,
     riskScore: null,
     riskCategory: 'INSUFFICIENT_DATA',
     topRiskReason: 'Not enough attendance or marks recorded yet',
   };
   mockStudentsList.unshift(student);
-  return { ...student };
+  return withComputedFields(student);
 }
 
 /**
@@ -218,7 +202,7 @@ export async function updateStudent(id, payload) {
   if (payload.studentCode) assertUniqueCode(payload.studentCode, id);
 
   Object.assign(student, payload);
-  return { ...student };
+  return withComputedFields(student);
 }
 
 /**
@@ -240,5 +224,5 @@ export async function updateStudentStatus(id, status) {
   }
   const student = findMockStudent(id);
   student.status = status;
-  return { ...student };
+  return withComputedFields(student);
 }

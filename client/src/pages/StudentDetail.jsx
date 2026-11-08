@@ -278,14 +278,7 @@ export default function StudentDetail() {
         </div>
       )}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
-          gap: '24px',
-          marginBottom: '24px',
-        }}
-      >
+      <div className="grid-2" style={{ marginBottom: '24px' }}>
         {/* Guardian & support */}
         <div className="card">
           <div className="card-header">
@@ -333,8 +326,8 @@ export default function StudentDetail() {
               <CalendarCheck size={18} color="var(--color-primary)" />
               Attendance
             </h3>
-            <span style={{ fontSize: '14px', fontWeight: 700, color: attendanceTone(attendance.attendanceRate) }}>
-              {formatPercent(attendance.attendanceRate)}
+            <span style={{ fontSize: '14px', fontWeight: 700, color: attendanceTone(attendance.attendancePercentage) }}>
+              {formatPercent(attendance.attendancePercentage)}
             </span>
           </div>
 
@@ -353,10 +346,10 @@ export default function StudentDetail() {
                   <StatTile label="Excused" value={attendance.excused} />
                 </div>
 
-                {attendance.currentAbsenceStreak >= 3 && (
+                {attendance.consecutiveAbsences >= 3 && (
                   <div className="alert alert-error" style={{ marginBottom: '16px' }}>
                     <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
-                    <span>Absent for the last {attendance.currentAbsenceStreak} school days in a row.</span>
+                    <span>Absent for the last {attendance.consecutiveAbsences} recorded school days in a row.</span>
                   </div>
                 )}
 
@@ -377,7 +370,7 @@ export default function StudentDetail() {
                     </thead>
                     <tbody>
                       {attendance.recent.map((log) => (
-                        <tr key={log.date}>
+                        <tr key={log.id}>
                           <td style={{ fontSize: '12px' }}>{formatDate(log.date)}</td>
                           <td><Badge type="attendance" value={log.status} /></td>
                           <td style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{log.note || '—'}</td>
@@ -385,6 +378,14 @@ export default function StudentDetail() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+                <div style={{ marginTop: '12px', fontSize: '12px' }}>
+                  <Link
+                    to={`/attendance?tab=records&search=${encodeURIComponent(student.studentCode)}`}
+                    style={{ color: 'var(--color-primary)', fontWeight: 600 }}
+                  >
+                    View all attendance records →
+                  </Link>
                 </div>
               </>
             )}
