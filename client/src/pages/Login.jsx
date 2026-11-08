@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { GraduationCap, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { GraduationCap, ArrowRight, ShieldCheck, AlertCircle, Clock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
-import { USE_MOCKS } from '../services/api.js';
+import { SHOW_DEMO_ACCOUNTS } from '../services/api.js';
 import { DEMO_PASSWORD, mockUsers } from '../data/mockUsersData.js';
 import { ROLE_LABELS } from '../utils/permissions.js';
+import '../components/common/common.css';
 
 const labelStyle = {
   display: 'block',
@@ -27,7 +28,7 @@ const inputStyle = {
 const demoAccounts = mockUsers.filter((u) => u.isActive);
 
 export default function Login() {
-  const { login, status } = useAuth();
+  const { login, status, sessionExpired } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = location.state?.from?.pathname || '/dashboard';
@@ -107,6 +108,12 @@ export default function Login() {
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {sessionExpired && !error && (
+            <div className="alert alert-info" role="status">
+              <Clock size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+              <span>Your session has ended. Please sign in again.</span>
+            </div>
+          )}
           {error && (
             <div
               role="alert"
@@ -183,8 +190,8 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Demo accounts (mock mode only) */}
-        {USE_MOCKS && (
+        {/* Demo accounts (mock mode, or VITE_SHOW_DEMO_ACCOUNTS=true for a public demo) */}
+        {SHOW_DEMO_ACCOUNTS && (
           <div
             style={{
               marginTop: '24px',
@@ -197,7 +204,7 @@ export default function Login() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: 600 }}>
               <ShieldCheck size={16} color="var(--color-primary)" style={{ flexShrink: 0 }} />
-              <span>Demo mode: choose an account (password {DEMO_PASSWORD})</span>
+              <span>Demo school: choose an account (password {DEMO_PASSWORD})</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {demoAccounts.map((account) => (

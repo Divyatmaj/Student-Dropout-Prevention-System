@@ -15,6 +15,9 @@ export const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [status, setStatus] = useState(() => (tokenStorage.get() ? 'loading' : 'unauthenticated'));
+  // True when a session ended on its own (expired token, deactivated account),
+  // so the login page can say why the user is there.
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Restore the session from a stored token on first load.
   useEffect(() => {
@@ -30,7 +33,10 @@ export function AuthProvider({ children }) {
       })
       .catch((err) => {
         if (cancelled) return;
-        if (err.status === 401) tokenStorage.clear();
+        if (err.status === 401) {
+          tokenStorage.clear();
+          setSessionExpired(true);
+        }
         setUser(null);
         setStatus('unauthenticated');
       });
@@ -47,6 +53,7 @@ export function AuthProvider({ children }) {
     const handleUnauthorized = () => {
       setUser(null);
       setStatus('unauthenticated');
+      setSessionExpired(true);
     };
     window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
@@ -55,6 +62,7 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const { token, user: signedInUser } = await authService.login(email, password);
     tokenStorage.set(token);
+    setSessionExpired(false);
     setUser(signedInUser);
     setStatus('authenticated');
     return signedInUser;
@@ -62,6 +70,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     tokenStorage.clear();
+    setSessionExpired(false);
     setUser(null);
     setStatus('unauthenticated');
   }, []);
@@ -71,11 +80,12 @@ export function AuthProvider({ children }) {
       user,
       status,
       isAuthenticated: status === 'authenticated',
+      sessionExpired,
       login,
       logout,
       can: (permission) => canUser(user, permission),
     }),
-    [user, status, login, logout]
+    [user, status, sessionExpired, login, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

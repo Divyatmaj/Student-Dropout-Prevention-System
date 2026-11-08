@@ -10,13 +10,22 @@
  *   the auth context can sign the user out.
  *
  * Mock mode: when `VITE_USE_MOCKS=true`, services return local mock data
- * instead of calling the API. Mock data is never used to hide a real API error.
+ * instead of calling the API (frontend-only development). The default is the
+ * real API. Mock data is never used to hide a real API error.
  */
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
-// Defaults to mock mode until the Udaan API is connected.
-export const USE_MOCKS = (import.meta.env.VITE_USE_MOCKS ?? 'true') === 'true';
+export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
+
+/** Show the demo-account buttons on the login page (always on in mock mode). */
+export const SHOW_DEMO_ACCOUNTS = USE_MOCKS || import.meta.env.VITE_SHOW_DEMO_ACCOUNTS === 'true';
+
+/**
+ * Give up on a request after this long. Generous because the first request
+ * after a quiet period can wait for the database to wake up (a few seconds).
+ */
+export const REQUEST_TIMEOUT_MS = 25_000;
 
 export const UNAUTHORIZED_EVENT = 'udaan:unauthorized';
 
@@ -84,14 +93,23 @@ export async function apiClient(endpoint, options = {}) {
     requestHeaders.Authorization = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let response;
   try {
-    response = await fetch(url, { ...fetchOptions, headers: requestHeaders });
-  } catch {
-    throw new ApiError({
-      message: 'Unable to reach the Udaan API. Check your connection and try again.',
-      code: 'NETWORK_ERROR',
-    });
+    response = await fetch(url, { ...fetchOptions, headers: requestHeaders, signal: controller.signal });
+  } catch (err) {
+    throw err?.name === 'AbortError'
+      ? new ApiError({
+          message: 'The Udaan API took too long to respond. Please try again.',
+          code: 'TIMEOUT',
+        })
+      : new ApiError({
+          message: 'Unable to reach the Udaan API. Check your connection and try again.',
+          code: 'NETWORK_ERROR',
+        });
+  } finally {
+    clearTimeout(timer);
   }
 
   const payload = response.status === 204 ? null : await response.json().catch(() => null);
