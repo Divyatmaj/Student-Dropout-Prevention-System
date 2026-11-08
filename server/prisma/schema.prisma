@@ -1,0 +1,345 @@
+// Udaan database schema (Prisma 7, PostgreSQL).
+//
+// Every school-owned table carries `schoolId`. Services always filter by the
+// signed-in user's school and check that related records (student,
+// assessment, assigned staff) belong to the same school.
+//
+// Classes are stored as grade + section on students and assessments rather
+// than a separate class table.
+//
+// Connection settings live in prisma.config.js; the API connects through
+// the pg driver adapter in src/config/prisma.js.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum UserRole {
+  PLATFORM_ADMIN
+  SCHOOL_ADMIN
+  PRINCIPAL
+  TEACHER
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  TRANSFERRED
+  COMPLETED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum RiskCategory {
+  LOW
+  MEDIUM
+  HIGH
+  INSUFFICIENT_DATA
+}
+
+enum DataStatus {
+  COMPLETE
+  PROVISIONAL
+  INSUFFICIENT_DATA
+}
+
+enum InterventionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InterventionPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ConcernCategory {
+  ATTENDANCE
+  ACADEMIC
+  FINANCIAL
+  ACCESSIBILITY
+  FAMILY
+  OTHER
+}
+
+enum InterventionEventType {
+  CREATED
+  STATUS_CHANGED
+  UPDATED
+  REASSIGNED
+  NOTE
+}
+
+// ----------------------------------------------------------------------------
+// Schools and staff
+// ----------------------------------------------------------------------------
+
+model School {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  code      String   @unique
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  students      Student[]
+  attendance    Attendance[]
+  assessments   Assessment[]
+  marks         StudentMark[]
+  risk          RiskAssessment[]
+  interventions Intervention[]
+  auditLogs     AuditLog[]
+
+  @@map("schools")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  /// Null only for a platform admin; every school staff account has a school.
+  schoolId     String?  @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school                School?             @relation(fields: [schoolId], references: [id])
+  assignedStudents      Student[]           @relation("StudentTeacher")
+  attendanceRecorded    Attendance[]        @relation("AttendanceRecorder")
+  assessmentsCreated    Assessment[]        @relation("AssessmentCreator")
+  marksRecorded         StudentMark[]       @relation("MarkRecorder")
+  riskReviews           RiskAssessment[]    @relation("RiskReviewer")
+  interventionsAssigned Intervention[]      @relation("InterventionOwner")
+  interventionsCreated  Intervention[]      @relation("InterventionCreator")
+  interventionEvents    InterventionEvent[]
+  auditLogs             AuditLog[]
+
+  @@index([schoolId, role])
+  @@map("users")
+}
+
+// ----------------------------------------------------------------------------
+// Students and their records
+// ----------------------------------------------------------------------------
+
+model Student {
+  id                       String        @id @default(uuid()) @db.Uuid
+  schoolId                 String        @db.Uuid
+  studentCode              String
+  fullName                 String
+  dateOfBirth              DateTime?     @db.Date
+  grade                    String
+  section                  String?
+  admissionDate            DateTime?     @db.Date
+  status                   StudentStatus @default(ACTIVE)
+  guardianName             String?
+  guardianPhone            String?
+  guardianRelationship     String?
+  financialBarrierReported Boolean       @default(false)
+  /// Support context for authorised staff only. Never shown on dashboards.
+  supportNotes             String?
+  assignedTeacherId        String?       @db.Uuid
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+
+  school          School          @relation(fields: [schoolId], references: [id])
+  assignedTeacher User?           @relation("StudentTeacher", fields: [assignedTeacherId], references: [id])
+  attendance      Attendance[]
+  marks           StudentMark[]
+  riskAssessment  RiskAssessment?
+  interventions   Intervention[]
+
+  @@unique([schoolId, studentCode])
+  @@index([schoolId, status])
+  @@index([schoolId, grade, section])
+  @@index([assignedTeacherId])
+  @@map("students")
+}
+
+/// One record per student per school day.
+model Attendance {
+  id           String           @id @default(uuid()) @db.Uuid
+  schoolId     String           @db.Uuid
+  studentId    String           @db.Uuid
+  date         DateTime         @db.Date
+  status       AttendanceStatus
+  note         String?
+  recordedById String           @db.Uuid
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  school     School  @relation(fields: [schoolId], references: [id])
+  student    Student @relation(fields: [studentId], references: [id])
+  recordedBy User    @relation("AttendanceRecorder", fields: [recordedById], references: [id])
+
+  @@unique([studentId, date])
+  @@index([schoolId, date])
+  @@map("attendance")
+}
+
+/// A test or exam for one class (grade + section), or a whole grade when section is null.
+model Assessment {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @db.Uuid
+  title          String
+  subject        String
+  grade          String
+  section        String?
+  assessmentDate DateTime @db.Date
+  maxMarks       Float
+  createdById    String   @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  school    School        @relation(fields: [schoolId], references: [id])
+  createdBy User          @relation("AssessmentCreator", fields: [createdById], references: [id])
+  marks     StudentMark[]
+
+  @@index([schoolId, assessmentDate])
+  @@index([schoolId, grade, section])
+  @@map("assessments")
+}
+
+model StudentMark {
+  id           String   @id @default(uuid()) @db.Uuid
+  schoolId     String   @db.Uuid
+  studentId    String   @db.Uuid
+  assessmentId String   @db.Uuid
+  score        Float
+  recordedById String   @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school     School     @relation(fields: [schoolId], references: [id])
+  student    Student    @relation(fields: [studentId], references: [id])
+  assessment Assessment @relation(fields: [assessmentId], references: [id])
+  recordedBy User       @relation("MarkRecorder", fields: [recordedById], references: [id])
+
+  @@unique([studentId, assessmentId])
+  @@index([schoolId, studentId])
+  @@map("student_marks")
+}
+
+// ----------------------------------------------------------------------------
+// Risk and interventions
+// ----------------------------------------------------------------------------
+
+/// The current risk indicator for an active student (one row per student),
+/// calculated by @udaan/shared assessStudentRisk.
+model RiskAssessment {
+  id                  String       @id @default(uuid()) @db.Uuid
+  schoolId            String       @db.Uuid
+  studentId           String       @unique @db.Uuid
+  score               Int
+  category            RiskCategory
+  dataStatus          DataStatus
+  /// [{ code, label, points }], highest points first
+  reasons             Json
+  dataGaps            Json
+  indicators          Json
+  humanReviewRequired Boolean      @default(true)
+  calculatedAt        DateTime     @default(now())
+  /// Last time score, category or data status changed — reviews older than this are stale.
+  changedAt           DateTime     @default(now())
+  reviewedAt          DateTime?
+  reviewedById        String?      @db.Uuid
+  reviewNote          String?
+
+  school     School  @relation(fields: [schoolId], references: [id])
+  student    Student @relation(fields: [studentId], references: [id])
+  reviewedBy User?   @relation("RiskReviewer", fields: [reviewedById], references: [id])
+
+  @@index([schoolId, category, score])
+  @@map("risk_assessments")
+}
+
+model Intervention {
+  id           String               @id @default(uuid()) @db.Uuid
+  schoolId     String               @db.Uuid
+  studentId    String               @db.Uuid
+  createdById  String               @db.Uuid
+  assignedToId String?              @db.Uuid
+  category     ConcernCategory
+  priority     InterventionPriority @default(MEDIUM)
+  status       InterventionStatus   @default(OPEN)
+  description  String
+  actionPlan   String?
+  dueDate      DateTime?            @db.Date
+  followUpDate DateTime?            @db.Date
+  outcome      String?
+  /// Copy of the student's risk score and reasons when the intervention was created. Never updated.
+  riskSnapshot Json?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  school     School              @relation(fields: [schoolId], references: [id])
+  student    Student             @relation(fields: [studentId], references: [id])
+  createdBy  User                @relation("InterventionCreator", fields: [createdById], references: [id])
+  assignedTo User?               @relation("InterventionOwner", fields: [assignedToId], references: [id])
+  history    InterventionEvent[]
+
+  @@index([schoolId, status, dueDate])
+  @@index([studentId, createdAt])
+  @@index([assignedToId, status])
+  @@map("interventions")
+}
+
+/// Append-only history of an intervention.
+model InterventionEvent {
+  id             String                @id @default(uuid()) @db.Uuid
+  interventionId String                @db.Uuid
+  actorId        String                @db.Uuid
+  type           InterventionEventType
+  fromStatus     InterventionStatus?
+  toStatus       InterventionStatus?
+  /// Names of fields changed by an UPDATED event
+  fields         Json?
+  note           String?
+  createdAt      DateTime              @default(now())
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  actor        User         @relation(fields: [actorId], references: [id])
+
+  @@index([interventionId, createdAt])
+  @@map("intervention_events")
+}
+
+/// Sensitive actions (e.g. deleting an attendance record) with who, what and why.
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  schoolId   String   @db.Uuid
+  actorId    String   @db.Uuid
+  action     String
+  entityType String
+  entityId   String
+  reason     String?
+  /// Copy of the record before the change
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id])
+  actor  User   @relation(fields: [actorId], references: [id])
+
+  @@index([schoolId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

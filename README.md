@@ -11,9 +11,9 @@ transparent rule-based score, and track human-led interventions to completion.
 ```
 .
 ├── client/          Udaan web app (React 18 + Vite)
-├── server/          Udaan API (Express + Prisma 7 + PostgreSQL)      (coming soon)
-├── shared/          Business rules shared by client and server (attendance metrics, risk rules)
-├── api/             Vercel serverless entry that exposes the Udaan API (coming soon)
+├── server/          Udaan API (Express 5 + Prisma 7 + PostgreSQL)
+├── shared/          Business rules shared by client and server (attendance, risk, interventions)
+├── api/             Vercel serverless entry that exposes the Udaan API
 ├── vercel.json      Single Vercel project: static frontend + /api function
 └── package.json     npm workspaces root
 ```
@@ -35,22 +35,58 @@ server, so the same code works in both environments.
 Requirements: Node.js 20+ and npm 10+.
 
 ```bash
-npm install                      # installs all workspaces from the repo root
+npm install                      # installs all workspaces and generates the Prisma client
 cp client/.env.example client/.env.local
-npm run dev                      # Udaan web app on http://localhost:3000
+npm run dev:web                  # Udaan web app on http://localhost:3000
 ```
 
 With `VITE_USE_MOCKS=true` (the default in `.env.example`) the web app runs
-entirely on local mock data, so the API is not required yet.
+entirely on local mock data, so the API is not required.
+
+### Running the API
+
+The API needs a PostgreSQL database. [Neon](https://neon.tech) (free tier) is the
+simplest option, and the same database works for local development and Vercel.
+
+1. Create a Neon project and a database named `udaan`.
+2. From **Connect**, copy two connection strings: the **pooled** one (host contains
+   `-pooler`) and the **direct** one.
+3. `cp server/.env.example server/.env` and set `DATABASE_URL` to the pooled string and
+   `DIRECT_URL` to the direct string.
+4. Create the tables: `npm run db:deploy`
+5. Start both apps: `npm run dev` (API on http://localhost:5000, web app on
+   http://localhost:3000; the web app proxies `/api` to the API).
+6. Check the connection: http://localhost:3000/api/v1/health/db should return
+   `{"success":true,"data":{"database":"ok",...}}`.
+
+A local PostgreSQL also works — put the same URL in `DATABASE_URL` and leave
+`DIRECT_URL` empty.
 
 ### Scripts (run from the repo root)
 
-| Command           | What it does                         |
-| ----------------- | ------------------------------------ |
-| `npm run dev`     | Start the web app dev server         |
-| `npm run build`   | Production build into `client/dist`  |
-| `npm run preview` | Preview the production build         |
-| `npm test`        | Run the unit tests in every workspace |
+| Command              | What it does                                              |
+| -------------------- | --------------------------------------------------------- |
+| `npm run dev`        | Start the API and the web app together                    |
+| `npm run dev:web`    | Start only the web app                                    |
+| `npm run dev:api`    | Start only the API (restarts on file changes)             |
+| `npm run build`      | Generate the Prisma client and build the web app          |
+| `npm test`           | Run the unit tests in every workspace                     |
+| `npm run db:migrate` | Create a migration after editing `schema.prisma` (dev DB) |
+| `npm run db:deploy`  | Apply pending migrations to the database                  |
+| `npm run db:status`  | Show which migrations have been applied                   |
+| `npm run db:studio`  | Browse the database in Prisma Studio                      |
+
+API tests run without a database. To also run the database tests, point
+`TEST_DATABASE_URL` at a disposable database (migrated with `npm run db:deploy`):
+`TEST_DATABASE_URL=postgresql://... npm test -w server`.
+
+### API conventions
+
+- Base path `/api/v1`. Successful responses: `{ "success": true, "data": ..., "message"? }`.
+- Errors: `{ "success": false, "error": { "code", "message", "details": [{ "field", "message" }] } }`
+  with 400 (malformed), 401, 403, 404, 409 (duplicate/conflict), 422 (validation),
+  413 (body over 100 kB) and 503 (database unavailable).
+- `GET /api/v1/health` checks the API; `GET /api/v1/health/db` checks the database.
 
 ## Attendance policy
 
@@ -110,20 +146,25 @@ All use the password `Udaan@123`.
 
 ## Environment variables
 
-| Variable             | Where   | Purpose                                              |
-| -------------------- | ------- | ---------------------------------------------------- |
-| `VITE_API_BASE_URL`  | client  | API base path (default `/api/v1`)                    |
-| `VITE_DEV_API_PROXY` | client  | Local Express URL the dev server proxies `/api` to   |
-| `VITE_USE_MOCKS`     | client  | `true` to use local mock data instead of the API     |
-
-Never commit real `.env` files — only the `.env.example` templates.
+| Variable             | Where   | Purpose                                                        |
+| -------------------- | ------- | -------------------------------------------------------------- |
+| `VITE_API_BASE_URL`  | client  | API base path (default `/api/v1`)                              |
+| `VITE_DEV_API_PROXY` | client  | Local API URL the dev server proxies `/api` to                 |
+| `VITE_USE_MOCKS`     | client  | `true` to use local mock data instead of the API               |
+| `DATABASE_URL`       | server  | PostgreSQL connection used by the API (Neon: pooled string)    |
+| `DIRECT_URL`         | server  | Connection used for migrations (Neon: direct string)           |
+| `PORT`               | server  | Local API port (default `5000`)                                |
+| `CORS_ORIGINS`       | server  | Only if the web app runs on another origin (comma-separated)   |
+| `DB_POOL_MAX`        | server  | Connections per API instance (default `5`)                     |
 
 ## Deployment (Vercel)
 
 1. Import this repository into Vercel (leave **Root Directory** as the repo root).
-2. Vercel reads `vercel.json`: it runs `npm run build` and serves `client/dist`.
-3. Backend environment variables (`DATABASE_URL`, `JWT_SECRET`, …) will be
-   documented here once the server is added.
+2. Vercel reads `vercel.json`: it runs `npm run build`, serves `client/dist`, and
+   deploys `api/index.js` (the Express app) as a serverless function for `/api/*`.
+3. Add `DATABASE_URL` (Neon pooled string) in **Project → Settings → Environment
+   Variables**, and run `npm run db:deploy` from your machine to apply migrations.
+   The full production checklist is added in a later step.
 
 ## Privacy note
 

@@ -6,15 +6,30 @@
   "type": "module",
   "workspaces": [
     "client",
+    "server",
     "shared"
   ],
   "scripts": {
-    "dev": "npm run dev -w client",
-    "build": "npm run build -w client",
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w server",
+    "dev:web": "npm run dev -w client",
+    "build": "npm run db:generate -w server && npm run build -w client",
     "preview": "npm run preview -w client",
-    "test": "npm run test --workspaces --if-present"
+    "start:api": "npm run start -w server",
+    "test": "npm run test --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w server",
+    "db:deploy": "npm run db:deploy -w server",
+    "db:status": "npm run db:status -w server",
+    "db:studio": "npm run db:studio -w server"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "concurrently": "10.0.6"
+  },
+  "dependencies": {
+    "@neon/config": "^1.13.0",
+    "@neon/env": "^2.1.0"
   }
 }
