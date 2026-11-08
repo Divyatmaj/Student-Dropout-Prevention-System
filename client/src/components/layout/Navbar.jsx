@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Menu, Bell, Calendar, ShieldCheck } from 'lucide-react';
+import { Menu, Bell } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth.js';
 
 const routeTitleMap = {
   '/dashboard': 'Executive Overview',
@@ -13,6 +14,7 @@ const routeTitleMap = {
 
 export default function Navbar({ onToggleSidebar }) {
   const location = useLocation();
+  const { user } = useAuth();
 
   // Find the matching title or default to Udaan Platform
   const currentTitle =
@@ -39,7 +41,7 @@ export default function Navbar({ onToggleSidebar }) {
       <div className="navbar-right">
         <div className="institution-pill">
           <span className="institution-pill-dot" />
-          <span>AY 2025-26 • Semester I</span>
+          <span>{user?.schoolName}</span>
         </div>
 
         <button

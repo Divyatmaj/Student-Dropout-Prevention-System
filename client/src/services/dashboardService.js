@@ -1,26 +1,23 @@
-import { apiClient } from './api.js';
+import { apiClient, USE_MOCKS, mockDelay } from './api.js';
 import { mockDashboardOverview } from '../data/mockDashboardData.js';
 
 /**
- * Service to fetch executive dashboard overview data
- * 
- * Target endpoint: GET /dashboard/overview
- * 
- * Supports seamless fallback to mock data when backend is not running,
- * and allows UI testing of Loading, Empty, and Error states.
+ * Executive dashboard overview.
+ * GET /dashboard/overview
+ *
+ * `simulateError` / `simulateEmpty` let the dashboard preview its
+ * error and empty states in mock mode.
  */
 export async function getDashboardOverview(options = {}) {
   const { simulateError = false, simulateEmpty = false } = options;
 
-  // 1. If explicit error simulation is requested (for testing ErrorState)
   if (simulateError) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await mockDelay(500);
     throw new Error('Database connection timeout: Unable to reach PostgreSQL cluster.');
   }
 
-  // 2. If explicit empty simulation is requested (for testing EmptyState)
   if (simulateEmpty) {
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await mockDelay(400);
     return {
       stats: {
         totalStudents: 0,
@@ -49,19 +46,8 @@ export async function getDashboardOverview(options = {}) {
     };
   }
 
-  // 3. Attempt live API call to Express / PostgreSQL backend
-  try {
-    const data = await apiClient('/dashboard/overview');
-    return data;
-  } catch (error) {
-    // If backend server is not running during early frontend development,
-    // gracefully fall back to structured mock dataset
-    console.info(
-      '[Udaan Service] Express backend at /dashboard/overview not yet reachable. Falling back to local mock response.',
-      error.message
-    );
-    // Add realistic 400ms loading simulation
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    return mockDashboardOverview;
-  }
+  if (!USE_MOCKS) return apiClient('/dashboard/overview');
+
+  await mockDelay(400);
+  return mockDashboardOverview;
 }

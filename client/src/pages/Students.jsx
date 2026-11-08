@@ -22,8 +22,11 @@ import EmptyState from '../components/common/EmptyState.jsx';
 import '../components/common/common.css';
 
 import { getStudents, createStudent } from '../services/studentService.js';
+import { useAuth } from '../hooks/useAuth.js';
+import { PERMISSIONS } from '../utils/permissions.js';
 
 export default function Students() {
+  const { can } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -111,16 +114,18 @@ export default function Students() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Button
-            variant="primary"
-            size="md"
-            icon={UserPlus}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Add Student
-          </Button>
-        </div>
+        {can(PERMISSIONS.STUDENT_CREATE) && (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <Button
+              variant="primary"
+              size="md"
+              icon={UserPlus}
+              onClick={() => setIsModalOpen(true)}
+            >
+              Add Student
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Filter and Search Bar Toolbar */}

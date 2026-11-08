@@ -32,8 +32,10 @@ import {
   createIntervention,
   updateIntervention,
 } from '../services/interventionService.js';
+import { useAuth } from '../hooks/useAuth.js';
 
 export default function Interventions() {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const urlStudentId = searchParams.get('studentId') || '';
   const urlStudentName = searchParams.get('name') || '';
@@ -140,8 +142,8 @@ export default function Interventions() {
     try {
       await updateIntervention(caseId, {
         status: newStatus,
-        newNote: `Status updated to ${newStatus.replace('_', ' ').toUpperCase()} by Academic Coordinator.`,
-        author: 'Dr. Radhika Sharma',
+        newNote: `Status updated to ${newStatus.replace('_', ' ').toUpperCase()} by ${user.name}.`,
+        author: user.name,
       });
       loadData();
     } catch (err) {
@@ -158,7 +160,7 @@ export default function Interventions() {
       const result = await updateIntervention(selectedCase.id, {
         status: updateStatusChoice || selectedCase.status,
         newNote: newUpdateNote,
-        author: 'Dr. Radhika Sharma',
+        author: user.name,
       });
       setSelectedCase(result.updatedRecord);
       setNewUpdateNote('');

@@ -1,7 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-// Layout shell
+import { AuthProvider } from './context/AuthContext.jsx';
+import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
 import Layout from './components/layout/Layout.jsx';
 
 // Page Views
@@ -18,24 +19,33 @@ import NotFound from './pages/NotFound.jsx';
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Standalone Authentication Route */}
-        <Route path="/login" element={<Login />} />
+      <AuthProvider>
+        <Routes>
+          {/* Public */}
+          <Route path="/login" element={<Login />} />
 
-        {/* Protected Institutional Layout & Sub-routes */}
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="students" element={<Students />} />
-          <Route path="students/:id" element={<StudentDetail />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="academics" element={<Academics />} />
-          <Route path="risk" element={<RiskMonitoring />} />
-          <Route path="interventions" element={<Interventions />} />
-          {/* Catch-all Not Found inside layout */}
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
+          {/* Signed-in staff only */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="students" element={<Students />} />
+            <Route path="students/:id" element={<StudentDetail />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="academics" element={<Academics />} />
+            <Route path="risk" element={<RiskMonitoring />} />
+            <Route path="interventions" element={<Interventions />} />
+            {/* Catch-all Not Found inside layout */}
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
