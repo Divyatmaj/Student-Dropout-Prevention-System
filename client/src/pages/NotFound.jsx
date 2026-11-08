@@ -59,7 +59,7 @@ export default function NotFound() {
         </Link>
         <Link to="/students">
           <Button variant="secondary" size="md">
-            Student Directory
+            Students
           </Button>
         </Link>
       </div>

@@ -10,6 +10,7 @@ export default function Button({
   icon: Icon = null,
   style = {},
   className = '',
+  ...rest
 }) {
   return (
     <button
@@ -18,6 +19,7 @@ export default function Button({
       onClick={onClick}
       disabled={disabled}
       style={style}
+      {...rest}
     >
       {Icon && <Icon size={size === 'sm' ? 14 : 16} />}
       {children}

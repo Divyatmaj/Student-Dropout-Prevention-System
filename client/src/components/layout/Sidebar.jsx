@@ -29,7 +29,7 @@ export default function Sidebar({ isOpen, onClose }) {
     {
       to: '/students',
       permission: PERMISSIONS.STUDENTS_VIEW,
-      label: 'Students Directory',
+      label: 'Students',
       icon: Users,
     },
     {

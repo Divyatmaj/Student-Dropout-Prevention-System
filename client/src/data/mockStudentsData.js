@@ -1,288 +1,293 @@
 /**
- * ============================================================================
- * Backend Contract & Mock Dataset for Student Management
- * ============================================================================
- * 
- * BACKEND DEVELOPER INTEGRATION NOTES:
- * ----------------------------------------------------------------------------
- * This file serves as the exact schema contract for the Express + PostgreSQL backend.
- * 
- * 1. GET /students
- *    - Query params supported: ?search=...&department=...&riskLevel=...&semester=...
- *    - Expected Response: { total: number, students: StudentListItem[] }
- * 
- * 2. GET /students/:id/summary
- *    - Param: :id (e.g. STU-1042)
- *    - Expected Response: {
- *        student: StudentProfile,
- *        attendance: AttendanceSummary,
- *        academics: AcademicSummary,
- *        interventions: InterventionRecord[]
- *      }
- * 
- * 3. POST /students
- *    - Body: { name, rollNo, email, phone, department, semester }
- *    - Expected Response: { success: true, student: StudentListItem }
- * 
- * RULE-BASED RISK CALCULATION STANDARD:
- * - High Risk: Attendance < 65% OR failedAssessments >= 3
- * - Medium Risk: Attendance 65% - 75% OR failedAssessments in [1, 2]
- * - Low Risk: Attendance > 75% AND failedAssessments === 0
- * ============================================================================
+ * Mock students for the Udaan web app (used only when VITE_USE_MOCKS=true).
+ *
+ * Shape matches the Udaan API `Student` resource. Fields after the comment
+ * "computed by the API" are not stored on the student — the API joins them in
+ * from attendance and the current risk assessment for list views.
+ *
+ * Contract:
+ *   GET    /students?search=&grade=&section=&status=&riskCategory=&page=&limit=
+ *          → { students: Student[], total, page, limit }
+ *   GET    /students/:id            → Student
+ *   GET    /students/:id/summary    → { student, attendance, academics, risk, interventions }
+ *   POST   /students                → Student   (409 DUPLICATE_STUDENT_CODE)
+ *   PATCH  /students/:id            → Student   (409 DUPLICATE_STUDENT_CODE)
+ *   PATCH  /students/:id/status     → Student   body { status }
+ *
+ * IDs are kept stable (STU-xxxx) so links from other mock modules still work.
  */
+
+const CLASS_TEACHER = { id: 'USR-003', name: 'Neha Gupta' };
 
 export const mockStudentsList = [
   {
     id: 'STU-1042',
-    name: 'Aarav Sharma',
-    rollNo: 'CS2023-042',
-    email: 'aarav.sharma@institution.edu',
-    phone: '+91 98765 43210',
-    department: 'Computer Science',
-    semester: 4,
-    enrollmentYear: 2023,
-    attendanceRate: 52.8,
-    gpa: 5.4,
-    failedAssessmentsCount: 3,
-    riskLevel: 'high',
-    riskReason: 'Critical attendance below 65% (52.8%) and 3 failed core unit tests.',
+    studentCode: 'UDN-0142',
+    fullName: 'Aarav Sharma',
+    dateOfBirth: '2012-03-14',
+    grade: '8',
+    section: 'A',
+    admissionDate: '2021-06-10',
+    status: 'ACTIVE',
+    guardianName: 'Sunita Sharma',
+    guardianPhone: '9876543210',
+    guardianRelationship: 'Mother',
+    financialBarrierReported: true,
+    supportNotes: 'Family reported difficulty paying for transport after a job loss. Check whether bus pass support is available.',
+    assignedTeacherId: CLASS_TEACHER.id,
+    assignedTeacherName: CLASS_TEACHER.name,
+    // computed by the API
+    attendanceRate: 61.9,
+    riskScore: 75,
+    riskCategory: 'HIGH',
+    topRiskReason: 'Attendance below 75% (61.9%)',
   },
   {
     id: 'STU-1089',
-    name: 'Sneha Patel',
-    rollNo: 'EC2022-089',
-    email: 'sneha.patel@institution.edu',
-    phone: '+91 98765 43211',
-    department: 'Electronics',
-    semester: 6,
-    enrollmentYear: 2022,
-    attendanceRate: 58.0,
-    gpa: 6.1,
-    failedAssessmentsCount: 2,
-    riskLevel: 'high',
-    riskReason: 'Rapid attendance drop in last 30 days and 2 failed mid-term evaluations.',
+    studentCode: 'UDN-0189',
+    fullName: 'Sneha Patel',
+    dateOfBirth: '2011-08-02',
+    grade: '9',
+    section: 'B',
+    admissionDate: '2020-06-12',
+    status: 'ACTIVE',
+    guardianName: 'Mahesh Patel',
+    guardianPhone: '9876543211',
+    guardianRelationship: 'Father',
+    financialBarrierReported: false,
+    supportNotes: '',
+    assignedTeacherId: null,
+    assignedTeacherName: null,
+    attendanceRate: 66.7,
+    riskScore: 55,
+    riskCategory: 'HIGH',
+    topRiskReason: 'Attendance below 75% (66.7%)',
   },
   {
     id: 'STU-1120',
-    name: 'Rohan Deshmukh',
-    rollNo: 'ME2024-120',
-    email: 'rohan.deshmukh@institution.edu',
-    phone: '+91 98765 43212',
-    department: 'Mechanical',
-    semester: 2,
-    enrollmentYear: 2024,
-    attendanceRate: 61.5,
-    gpa: 5.8,
-    failedAssessmentsCount: 2,
-    riskLevel: 'high',
-    riskReason: 'Chronic absence pattern (< 65%) with 2 failed lab evaluations.',
+    studentCode: 'UDN-0220',
+    fullName: 'Rohan Deshmukh',
+    dateOfBirth: '2013-01-21',
+    grade: '7',
+    section: 'A',
+    admissionDate: '2022-06-15',
+    status: 'ACTIVE',
+    guardianName: 'Kavita Deshmukh',
+    guardianPhone: '9876543212',
+    guardianRelationship: 'Mother',
+    financialBarrierReported: false,
+    supportNotes: '',
+    assignedTeacherId: CLASS_TEACHER.id,
+    assignedTeacherName: CLASS_TEACHER.name,
+    attendanceRate: 71.4,
+    riskScore: 55,
+    riskCategory: 'HIGH',
+    topRiskReason: '5 consecutive absences',
   },
   {
     id: 'STU-1194',
-    name: 'Ananya Iyer',
-    rollNo: 'CE2023-194',
-    email: 'ananya.iyer@institution.edu',
-    phone: '+91 98765 43213',
-    department: 'Civil Engineering',
-    semester: 4,
-    enrollmentYear: 2023,
-    attendanceRate: 67.2,
-    gpa: 6.7,
-    failedAssessmentsCount: 2,
-    riskLevel: 'medium',
-    riskReason: 'Borderline attendance (67.2%) and declining grades in Structural Mechanics.',
+    studentCode: 'UDN-0294',
+    fullName: 'Ananya Iyer',
+    dateOfBirth: '2012-11-09',
+    grade: '8',
+    section: 'B',
+    admissionDate: '2021-06-10',
+    status: 'ACTIVE',
+    guardianName: 'Lakshmi Iyer',
+    guardianPhone: '9876543213',
+    guardianRelationship: 'Grandparent',
+    financialBarrierReported: false,
+    supportNotes: '',
+    assignedTeacherId: null,
+    assignedTeacherName: null,
+    attendanceRate: 81.0,
+    riskScore: 35,
+    riskCategory: 'MEDIUM',
+    topRiskReason: 'Average score dropped 20+ points',
   },
   {
     id: 'STU-1205',
-    name: 'Vikram Joshi',
-    rollNo: 'IT2022-205',
-    email: 'vikram.joshi@institution.edu',
-    phone: '+91 98765 43214',
-    department: 'Information Tech',
-    semester: 6,
-    enrollmentYear: 2022,
-    attendanceRate: 69.8,
-    gpa: 6.9,
-    failedAssessmentsCount: 1,
-    riskLevel: 'medium',
-    riskReason: 'Attendance approaching critical threshold (69.8%) with 1 failed quiz.',
+    studentCode: 'UDN-0305',
+    fullName: 'Vikram Joshi',
+    dateOfBirth: '2011-05-30',
+    grade: '9',
+    section: 'A',
+    admissionDate: '2020-06-12',
+    status: 'ACTIVE',
+    guardianName: 'Prakash Joshi',
+    guardianPhone: '9876543214',
+    guardianRelationship: 'Father',
+    financialBarrierReported: true,
+    supportNotes: 'Works part-time at the family shop on weekday mornings.',
+    assignedTeacherId: null,
+    assignedTeacherName: null,
+    attendanceRate: 81.0,
+    riskScore: 25,
+    riskCategory: 'MEDIUM',
+    topRiskReason: 'Attendance between 75% and 85% (81.0%)',
   },
   {
     id: 'STU-1231',
-    name: 'Pooja Verma',
-    rollNo: 'CS2023-231',
-    email: 'pooja.verma@institution.edu',
-    phone: '+91 98765 43215',
-    department: 'Computer Science',
-    semester: 4,
-    enrollmentYear: 2023,
-    attendanceRate: 72.4,
-    gpa: 7.1,
-    failedAssessmentsCount: 1,
-    riskLevel: 'medium',
-    riskReason: 'Attendance below institutional benchmark (72.4%) in Operating Systems.',
+    studentCode: 'UDN-0331',
+    fullName: 'Pooja Verma',
+    dateOfBirth: '2012-07-18',
+    grade: '8',
+    section: 'A',
+    admissionDate: '2021-06-10',
+    status: 'ACTIVE',
+    guardianName: 'Rekha Verma',
+    guardianPhone: '9876543215',
+    guardianRelationship: 'Mother',
+    financialBarrierReported: false,
+    supportNotes: '',
+    assignedTeacherId: CLASS_TEACHER.id,
+    assignedTeacherName: CLASS_TEACHER.name,
+    attendanceRate: 76.2,
+    riskScore: 25,
+    riskCategory: 'MEDIUM',
+    topRiskReason: '3 consecutive absences',
   },
   {
     id: 'STU-1011',
-    name: 'Priya Nair',
-    rollNo: 'CS2024-011',
-    email: 'priya.nair@institution.edu',
-    phone: '+91 98765 43216',
-    department: 'Computer Science',
-    semester: 2,
-    enrollmentYear: 2024,
-    attendanceRate: 88.5,
-    gpa: 8.6,
-    failedAssessmentsCount: 0,
-    riskLevel: 'low',
-    riskReason: 'Consistent attendance (> 85%) and strong academic performance across all tests.',
+    studentCode: 'UDN-0111',
+    fullName: 'Priya Nair',
+    dateOfBirth: '2013-02-05',
+    grade: '7',
+    section: 'B',
+    admissionDate: '2022-06-15',
+    status: 'ACTIVE',
+    guardianName: 'Suresh Nair',
+    guardianPhone: '9876543216',
+    guardianRelationship: 'Father',
+    financialBarrierReported: false,
+    supportNotes: '',
+    assignedTeacherId: null,
+    assignedTeacherName: null,
+    attendanceRate: 95.2,
+    riskScore: 0,
+    riskCategory: 'LOW',
+    topRiskReason: null,
   },
   {
     id: 'STU-1025',
-    name: 'Karthik Rao',
-    rollNo: 'EC2023-025',
-    email: 'karthik.rao@institution.edu',
-    phone: '+91 98765 43217',
-    department: 'Electronics',
-    semester: 4,
-    enrollmentYear: 2023,
-    attendanceRate: 91.2,
-    gpa: 8.9,
-    failedAssessmentsCount: 0,
-    riskLevel: 'low',
-    riskReason: 'High attendance (> 90%) and top-quartile assessment rankings.',
+    studentCode: 'UDN-0125',
+    fullName: 'Karthik Rao',
+    dateOfBirth: '2011-10-27',
+    grade: '9',
+    section: 'A',
+    admissionDate: '2020-06-12',
+    status: 'ACTIVE',
+    guardianName: 'Meena Rao',
+    guardianPhone: '9876543217',
+    guardianRelationship: 'Mother',
+    financialBarrierReported: false,
+    supportNotes: '',
+    assignedTeacherId: null,
+    assignedTeacherName: null,
+    attendanceRate: 90.5,
+    riskScore: 0,
+    riskCategory: 'LOW',
+    topRiskReason: null,
+  },
+  {
+    id: 'STU-1250',
+    studentCode: 'UDN-0350',
+    fullName: 'Meera Kulkarni',
+    dateOfBirth: '2014-04-12',
+    grade: '6',
+    section: 'A',
+    admissionDate: '2026-11-02',
+    status: 'ACTIVE',
+    guardianName: 'Anil Kulkarni',
+    guardianPhone: '9876543218',
+    guardianRelationship: 'Father',
+    financialBarrierReported: false,
+    supportNotes: 'Joined mid-term from another district.',
+    assignedTeacherId: CLASS_TEACHER.id,
+    assignedTeacherName: CLASS_TEACHER.name,
+    attendanceRate: null,
+    riskScore: null,
+    riskCategory: 'INSUFFICIENT_DATA',
+    topRiskReason: 'Not enough attendance or marks recorded yet',
+  },
+  {
+    id: 'STU-0987',
+    studentCode: 'UDN-0087',
+    fullName: 'Imran Shaikh',
+    dateOfBirth: '2011-12-01',
+    grade: '9',
+    section: 'B',
+    admissionDate: '2020-06-12',
+    status: 'TRANSFERRED',
+    guardianName: 'Farida Shaikh',
+    guardianPhone: '9876543219',
+    guardianRelationship: 'Mother',
+    financialBarrierReported: false,
+    supportNotes: 'Family relocated to Pune in October 2026.',
+    assignedTeacherId: null,
+    assignedTeacherName: null,
+    attendanceRate: 85.7,
+    riskScore: null,
+    riskCategory: null,
+    topRiskReason: null,
   },
 ];
 
-/**
- * Detailed profile summaries indexed by student ID for GET /students/:id/summary
- */
-export const mockStudentProfiles = {
-  'STU-1042': {
-    student: {
-      id: 'STU-1042',
-      name: 'Aarav Sharma',
-      rollNo: 'CS2023-042',
-      email: 'aarav.sharma@institution.edu',
-      phone: '+91 98765 43210',
-      department: 'Computer Science',
-      semester: 4,
-      enrollmentYear: 2023,
-      mentorName: 'Dr. Radhika Sharma',
-      status: 'Active',
-      riskLevel: 'high',
-      riskReason: 'Critical attendance below 65% (52.8%) and 3 failed core unit tests.',
-    },
-    attendance: {
-      overallRate: 52.8,
-      totalSessions: 90,
-      attendedSessions: 48,
-      absentSessions: 38,
-      excusedSessions: 4,
-      criticalThreshold: 65.0,
-      institutionalBenchmark: 75.0,
-      recentLogs: [
-        { date: '2026-11-06', subject: 'Data Structures', status: 'Absent', hours: 2 },
-        { date: '2026-11-05', subject: 'Database Management', status: 'Absent', hours: 2 },
-        { date: '2026-11-04', subject: 'Computer Networks', status: 'Present', hours: 1 },
-        { date: '2026-11-03', subject: 'Operating Systems', status: 'Absent', hours: 2 },
-        { date: '2026-11-02', subject: 'Data Structures Lab', status: 'Present', hours: 2 },
-        { date: '2026-10-31', subject: 'Software Engineering', status: 'Excused', hours: 1 },
-      ],
-    },
-    academics: {
-      gpa: 5.4,
-      percentage: 54.2,
-      totalAssessments: 6,
-      passedAssessments: 3,
-      failedAssessments: 3,
-      records: [
-        { subject: 'Data Structures', assessment: 'Mid-Term Exam', score: 14, maxScore: 50, passingScore: 20, classAverage: 36.2, status: 'Fail' },
-        { subject: 'Database Management', assessment: 'Unit Test 2', score: 18, maxScore: 50, passingScore: 20, classAverage: 37.8, status: 'Fail' },
-        { subject: 'Operating Systems', assessment: 'Quiz 1', score: 8, maxScore: 25, passingScore: 10, classAverage: 17.5, status: 'Fail' },
-        { subject: 'Computer Networks', assessment: 'Mid-Term Exam', score: 28, maxScore: 50, passingScore: 20, classAverage: 34.0, status: 'Pass' },
-        { subject: 'Software Engineering', assessment: 'Mid-Term Exam', score: 31, maxScore: 50, passingScore: 20, classAverage: 35.5, status: 'Pass' },
-        { subject: 'Web Technologies', assessment: 'Lab Practical', score: 21, maxScore: 25, passingScore: 10, classAverage: 19.8, status: 'Pass' },
-      ],
-    },
-    interventions: [
-      {
-        id: 'INT-401',
-        date: '2026-11-05',
-        type: 'Academic Counseling',
-        counselor: 'Dr. Radhika Sharma',
-        priority: 'urgent',
-        status: 'pending',
-        notes: 'Student reported difficulty keeping up with algorithmic assignments after illness. Recommended remedial lab sessions.',
-      },
-      {
-        id: 'INT-360',
-        date: '2026-10-18',
-        type: 'Attendance Notice',
-        counselor: 'Dean Office',
-        priority: 'high',
-        status: 'completed',
-        notes: 'First stage automated attendance warning letter sent via email.',
-      },
-    ],
-  },
-};
+function toLocalISODate(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 /**
- * Fallback generator for student IDs not explicitly mocked in detail
+ * Build a deterministic list of recent school days (newest first) whose
+ * attendance percentage matches `student.attendanceRate`, so the profile and
+ * the list agree in mock mode. Late arrivals count as attended.
  */
-export function generateStudentProfileFallback(studentId) {
-  const basic = mockStudentsList.find((s) => s.id === studentId) || {
-    id: studentId,
-    name: 'Sample Student',
-    rollNo: 'GEN-2024-001',
-    email: 'student@institution.edu',
-    phone: '+91 99999 00000',
-    department: 'General Engineering',
-    semester: 2,
-    enrollmentYear: 2024,
-    mentorName: 'Faculty Advisor',
-    status: 'Active',
-    riskLevel: 'medium',
-    riskReason: 'Attendance or assessment indicators require faculty evaluation.',
-    attendanceRate: 71.0,
-    gpa: 6.5,
-    failedAssessmentsCount: 1,
-  };
+export function buildMockDailyAttendance(student, days = 21) {
+  if (student.attendanceRate === null || student.attendanceRate === undefined) {
+    // New admission — only a few days recorded so far.
+    return [
+      { date: '2026-11-06', status: 'PRESENT', note: '' },
+      { date: '2026-11-05', status: 'PRESENT', note: '' },
+      { date: '2026-11-04', status: 'LATE', note: 'Arrived 20 minutes late' },
+    ];
+  }
 
-  return {
-    student: {
-      ...basic,
-      mentorName: 'Prof. Faculty Advisor',
-      status: 'Active',
-    },
-    attendance: {
-      overallRate: basic.attendanceRate || 71.0,
-      totalSessions: 80,
-      attendedSessions: Math.round((80 * (basic.attendanceRate || 71.0)) / 100),
-      absentSessions: 80 - Math.round((80 * (basic.attendanceRate || 71.0)) / 100),
-      excusedSessions: 2,
-      criticalThreshold: 65.0,
-      institutionalBenchmark: 75.0,
-      recentLogs: [
-        { date: '2026-11-06', subject: 'Core Course 1', status: 'Present', hours: 2 },
-        { date: '2026-11-05', subject: 'Core Course 2', status: 'Present', hours: 1 },
-        { date: '2026-11-04', subject: 'Applied Lab', status: 'Absent', hours: 2 },
-        { date: '2026-11-03', subject: 'Mathematics', status: 'Present', hours: 2 },
-      ],
-    },
-    academics: {
-      gpa: basic.gpa || 6.8,
-      percentage: Math.round((basic.gpa || 6.8) * 9.5),
-      totalAssessments: 4,
-      passedAssessments: 4 - (basic.failedAssessmentsCount || 0),
-      failedAssessments: basic.failedAssessmentsCount || 0,
-      records: [
-        { subject: 'Core Subject 1', assessment: 'Mid-Term', score: 32, maxScore: 50, passingScore: 20, classAverage: 35.0, status: 'Pass' },
-        { subject: 'Applied Lab', assessment: 'Practical', score: 19, maxScore: 25, passingScore: 10, classAverage: 18.0, status: 'Pass' },
-        { subject: 'Technical Elective', assessment: 'Unit Test', score: 16, maxScore: 50, passingScore: 20, classAverage: 32.0, status: (basic.failedAssessmentsCount > 0 ? 'Fail' : 'Pass') },
-      ],
-    },
-    interventions: [],
-  };
+  const dates = [];
+  const cursor = new Date('2026-11-06T00:00:00');
+  while (dates.length < days) {
+    const weekday = cursor.getDay();
+    if (weekday !== 0 && weekday !== 6) dates.push(toLocalISODate(cursor));
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  const statuses = Array(days).fill('PRESENT');
+  let absences = Math.round((days * (100 - student.attendanceRate)) / 100);
+
+  // Students flagged for a streak start their recent history with absences.
+  const streak = /(\d+) consecutive absences/.exec(student.topRiskReason || '');
+  const streakLength = streak ? Number(streak[1]) : 0;
+  for (let i = 0; i < streakLength && absences > 0; i += 1) {
+    statuses[i] = 'ABSENT';
+    absences -= 1;
+  }
+  if (streakLength < days) statuses[streakLength] = 'PRESENT'; // end the streak
+
+  // Spread the remaining absences evenly through the older days.
+  const firstFree = streakLength + 1;
+  const span = days - firstFree;
+  for (let n = 0; n < absences; n += 1) {
+    statuses[firstFree + Math.floor(((n + 0.5) * span) / absences)] = 'ABSENT';
+  }
+
+  // A few late arrivals (still counted as attended).
+  for (let i = firstFree + 2; i < days; i += 6) {
+    if (statuses[i] === 'PRESENT') statuses[i] = 'LATE';
+  }
+
+  return dates.map((date, i) => ({
+    date,
+    status: statuses[i],
+    note: statuses[i] === 'LATE' ? 'Arrived after assembly' : '',
+  }));
 }

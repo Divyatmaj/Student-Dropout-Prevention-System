@@ -1,8 +1,9 @@
 import React from 'react';
-import { AlertTriangle, Clock, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle2, XCircle, FileText, HelpCircle } from 'lucide-react';
+import { STUDENT_STATUS_LABELS } from '../../constants/students.js';
 
 export default function Badge({ type = 'risk', value, children }) {
-  const normalized = (value || children || '').toString().toLowerCase().replace(' ', '_');
+  const normalized = (value || children || '').toString().toLowerCase().replace(/\s+/g, '_');
 
   if (type === 'risk') {
     let icon = null;
@@ -17,6 +18,9 @@ export default function Badge({ type = 'risk', value, children }) {
     } else if (normalized === 'low') {
       icon = <CheckCircle2 size={12} />;
       label = 'Low Risk';
+    } else if (normalized === 'insufficient_data') {
+      icon = <HelpCircle size={12} />;
+      label = 'Insufficient Data';
     }
 
     return (
@@ -49,6 +53,14 @@ export default function Badge({ type = 'risk', value, children }) {
       <span className={`badge badge-attendance-${normalized}`}>
         {icon}
         <span>{label}</span>
+      </span>
+    );
+  }
+
+  if (type === 'studentStatus') {
+    return (
+      <span className={`badge badge-student-${normalized}`}>
+        {STUDENT_STATUS_LABELS[(value || '').toUpperCase()] || value}
       </span>
     );
   }
