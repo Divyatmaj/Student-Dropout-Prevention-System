@@ -1,692 +1,308 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpen,
-  CheckCircle2,
-  AlertTriangle,
-  TrendingUp,
+  FilePlus2,
+  TrendingDown,
+  ClipboardList,
+  Percent,
+  PenLine,
+  Eye,
   RotateCcw,
-  PlusCircle,
-  ExternalLink,
-  Award,
-  Layers,
-  BarChart2,
+  CheckCircle2,
 } from 'lucide-react';
 
 import StatCard from '../components/common/StatCard.jsx';
-import Badge from '../components/common/Badge.jsx';
-import Button from '../components/common/Button.jsx';
 import SearchBar from '../components/common/SearchBar.jsx';
-import Modal from '../components/common/Modal.jsx';
+import Button from '../components/common/Button.jsx';
 import LoadingState from '../components/common/LoadingState.jsx';
 import ErrorState from '../components/common/ErrorState.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
+import AssessmentFormModal from '../components/academics/AssessmentFormModal.jsx';
+import MarksSheetModal from '../components/academics/MarksSheetModal.jsx';
 import '../components/common/common.css';
 
-import {
-  getAcademicOverview,
-  getAssessmentResults,
-  recordMarks,
-} from '../services/academicService.js';
+import { getAcademicOverview, getAssessments } from '../services/academicService.js';
+import { useAuth } from '../hooks/useAuth.js';
+import { PERMISSIONS } from '../utils/permissions.js';
+import { GRADES, SECTIONS } from '../constants/students.js';
+import { SUBJECTS } from '../constants/academics.js';
+import { formatClass, formatDate, formatPercent } from '../utils/formatters.js';
+
+const DEFAULT_FILTERS = { grade: '', section: '', subject: '' };
+
+function percentTone(value) {
+  if (value === null || value === undefined) return 'var(--color-text-muted)';
+  if (value < 40) return 'var(--color-risk-high)';
+  if (value < 60) return 'var(--color-risk-medium)';
+  return 'var(--color-risk-low)';
+}
 
 export default function Academics() {
+  const { can } = useAuth();
   const [overview, setOverview] = useState(null);
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filters State
   const [search, setSearch] = useState('');
-  const [department, setDepartment] = useState('');
-  const [course, setCourse] = useState('');
-  const [assessmentType, setAssessmentType] = useState('');
-  const [status, setStatus] = useState('');
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
-  // Record Marks Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-  const [formData, setFormData] = useState({
-    studentId: 'STU-1042',
-    studentName: 'Aarav Sharma',
-    department: 'Computer Science',
-    semester: '4',
-    course: 'Data Structures',
-    assessmentName: 'Unit Test 3 - Graph Algorithms',
-    assessmentType: 'Unit Test',
-    score: '34',
-    maxScore: '50',
-    passingScore: '20',
-  });
+  const [creating, setCreating] = useState(false);
+  const [sheetId, setSheetId] = useState(null);
+  const [notice, setNotice] = useState('');
 
-  const loadData = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [overviewData, assessmentData] = await Promise.all([
-        getAcademicOverview(),
-        getAssessmentResults({
-          search,
-          department,
-          course,
-          assessmentType,
-          status,
-        }),
-      ]);
-      setOverview(overviewData);
-      setAssessments(assessmentData.assessments || []);
+      const [ov, list] = await Promise.all([getAcademicOverview(), getAssessments({ ...filters, search })]);
+      setOverview(ov);
+      setAssessments(list.assessments || []);
     } catch (err) {
-      setError(err.message || 'Failed to retrieve academic assessment records.');
+      setError(err.message || 'Could not load assessments.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, search]);
 
   useEffect(() => {
-    loadData();
-  }, [search, department, course, assessmentType, status]);
+    const timer = setTimeout(load, search ? 250 : 0);
+    return () => clearTimeout(timer);
+  }, [load, search]);
 
-  const handleResetFilters = () => {
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const reset = () => {
     setSearch('');
-    setDepartment('');
-    setCourse('');
-    setAssessmentType('');
-    setStatus('');
+    setFilters(DEFAULT_FILTERS);
   };
-
-  const handleRecordMarks = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setSuccessMsg('');
-    try {
-      await recordMarks(formData);
-      setSuccessMsg('Assessment marks recorded successfully!');
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setSuccessMsg('');
-        loadData();
-      }, 1000);
-    } catch (err) {
-      alert(`Error recording marks: ${err.message}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const isFiltered = search || department || course || assessmentType || status;
+  const isFiltered = search || Object.values(filters).some(Boolean);
 
   return (
     <div>
-      {/* Page Header */}
       <div className="page-header">
         <div>
-          <h2 className="page-title">Academic Performance & Assessments</h2>
+          <h2 className="page-title">Academics</h2>
           <p className="page-description">
-            Track student assessment outcomes, subject-level difficulty curves, performance risk indicators, and record grades.
+            Create assessments, enter marks for a class and see which students' results have dropped in a
+            subject.
           </p>
         </div>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Button
-            variant="primary"
-            size="md"
-            icon={PlusCircle}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Record Assessment Marks
+        {can(PERMISSIONS.ASSESSMENT_CREATE) && (
+          <Button variant="primary" size="md" icon={FilePlus2} onClick={() => setCreating(true)}>
+            New Assessment
           </Button>
-        </div>
+        )}
       </div>
 
-      {/* Academic Overview Stat Cards */}
       {overview && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-            gap: '16px',
-            marginBottom: '24px',
-          }}
-        >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <StatCard title="Average Result" value={formatPercent(overview.averagePercentage)} icon={Percent} subtitle={`${overview.marksCount} marks recorded`} />
+          <StatCard title="Assessments" value={overview.assessmentsCount} icon={ClipboardList} iconColor="#0369a1" iconBg="#e0f2fe" subtitle="across all classes" />
           <StatCard
-            title="Cohort Average GPA"
-            value={`${overview.averageGPA} / 10`}
-            icon={BookOpen}
-            iconColor="var(--color-primary)"
-            iconBg="var(--color-primary-subtle)"
-            badgeText="Target: > 7.0"
-            badgeType="low"
-            subtitle="Institutional benchmark met"
+            title="Marks Still to Enter"
+            value={overview.pendingAssessments}
+            icon={PenLine}
+            iconColor="var(--color-risk-medium)"
+            iconBg="var(--color-risk-medium-subtle)"
+            subtitle="assessments with missing marks"
           />
           <StatCard
-            title="Overall Pass Rate"
-            value={`${overview.overallPassRate}%`}
-            icon={CheckCircle2}
-            iconColor="var(--color-risk-low)"
-            iconBg="var(--color-risk-low-subtle)"
-            badgeText="Passing"
-            badgeType="low"
-            subtitle="Across all evaluations"
-          />
-          <StatCard
-            title="Academic Alert Cohort"
-            value={overview.studentsWithAcademicAlerts.toLocaleString()}
-            icon={AlertTriangle}
+            title="Declining Results"
+            value={overview.declining.length}
+            icon={TrendingDown}
             iconColor="var(--color-risk-high)"
             iconBg="var(--color-risk-high-subtle)"
-            badgeText="≥ 1 Failed Exam"
             badgeType="high"
-            subtitle="Requires remedial tutorial"
-          />
-          <StatCard
-            title="First-Attempt Clearance"
-            value={`${overview.firstAttemptClearance}%`}
-            icon={TrendingUp}
-            iconColor="var(--color-accent)"
-            iconBg="var(--color-accent-subtle)"
-            badgeText="Cleared"
-            badgeType="medium"
-            subtitle="20.8% required re-test"
+            badgeText="10+ point drop"
+            subtitle="same subject"
           />
         </div>
       )}
 
-      {/* Subject Difficulty & Assessment Benchmarking */}
-      {overview && overview.subjectDifficulty && (
+      {notice && (
+        <div className="alert alert-success" role="status" style={{ marginBottom: '16px' }}>
+          <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {/* Declining results */}
         <div className="card" style={{ marginBottom: '24px' }}>
           <div className="card-header">
             <div>
               <h3 className="card-title">
-                <BarChart2 size={18} color="var(--color-primary)" />
-                Subject Difficulty & Failure Risk Analysis
+                <TrendingDown size={18} color="var(--color-risk-high)" />
+                Students Whose Results Dropped
               </h3>
               <p className="card-subtitle">
-                Identifies courses with abnormal failure rates to trigger curriculum support and remedial tutorials
+                Latest result vs. the previous one in the same subject. A drop of 10+ points adds +10 to the
+                risk score; 20+ adds +20.
               </p>
             </div>
-            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-              Threshold Alert: Pass Rate &lt; 70%
-            </span>
           </div>
-
           <div className="card-body">
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '16px',
-              }}
-            >
-              {overview.subjectDifficulty.map((subj, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    padding: '16px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--color-bg-muted)',
-                    border: '1px solid var(--color-border)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--color-text-primary)' }}>
-                        {subj.course}
-                      </span>
-                      <Badge type="difficulty" value={subj.difficultyLevel} />
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                      {subj.department} • Avg: {subj.averageScore}/{subj.maxScore}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-                      <span style={{ color: 'var(--color-text-secondary)' }}>Pass Rate</span>
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          color:
-                            subj.passRate >= 75
-                              ? 'var(--color-risk-low)'
-                              : subj.passRate >= 70
-                              ? 'var(--color-risk-medium)'
-                              : 'var(--color-risk-high)',
-                        }}
-                      >
-                        {subj.passRate}%
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '6px',
-                        backgroundColor: 'var(--color-bg-surface)',
-                        borderRadius: 'var(--radius-full)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${subj.passRate}%`,
-                          height: '100%',
-                          backgroundColor:
-                            subj.passRate >= 75
-                              ? 'var(--color-risk-low)'
-                              : subj.passRate >= 70
-                              ? 'var(--color-risk-medium)'
-                              : 'var(--color-risk-high)',
-                          borderRadius: 'var(--radius-full)',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                    <strong>{subj.flaggedStudentsCount} students</strong> flagged below passing mark
-                  </div>
-                </div>
-              ))}
-            </div>
+            {!overview ? null : overview.declining.length === 0 ? (
+              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', textAlign: 'center', padding: '12px' }}>
+                No student has a same-subject drop of 10 points or more.
+              </p>
+            ) : (
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Subject</th>
+                      <th>Previous</th>
+                      <th>Latest</th>
+                      <th>Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overview.declining.map((d) => (
+                      <tr key={`${d.studentId}-${d.subject}`}>
+                        <td>
+                          <Link to={`/students/${d.studentId}`} style={{ fontWeight: 600, color: 'var(--color-primary-dark)', textDecoration: 'none' }}>
+                            {d.studentName}
+                          </Link>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                            {d.studentCode} · {formatClass(d.grade, d.section)}
+                          </div>
+                        </td>
+                        <td>{d.subject}</td>
+                        <td>{formatPercent(d.previous)}</td>
+                        <td style={{ fontWeight: 600, color: percentTone(d.latest) }}>{formatPercent(d.latest)}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--color-risk-high)' }}>−{d.drop} pts</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Filter and Search Bar Toolbar */}
-      <div
-        className="card"
-        style={{
-          padding: '16px 20px',
-          marginBottom: '24px',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: '12px',
-          justifyContent: 'space-between',
-        }}
-      >
+      {/* Assessments */}
+      <div className="card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
-          {/* Search by Student or Assessment */}
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search student name, ID, or assessment name..."
-            style={{ maxWidth: '300px' }}
-          />
-
-          {/* Department Filter */}
-          <select
-            className="filter-select"
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            aria-label="Filter by department"
-          >
-            <option value="">All Departments</option>
-            <option value="Computer Science">Computer Science</option>
-            <option value="Electronics">Electronics</option>
-            <option value="Information Tech">Information Tech</option>
-            <option value="Mechanical">Mechanical</option>
-            <option value="Civil Engineering">Civil Engineering</option>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by title or subject..." style={{ maxWidth: '260px' }} />
+          <select className="filter-select" value={filters.subject} onChange={(e) => setFilter('subject', e.target.value)} aria-label="Filter by subject">
+            <option value="">All subjects</option>
+            {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-
-          {/* Course Filter */}
-          <select
-            className="filter-select"
-            value={course}
-            onChange={(e) => setCourse(e.target.value)}
-            aria-label="Filter by course"
-          >
-            <option value="">All Courses</option>
-            <option value="Data Structures">Data Structures</option>
-            <option value="Database Management">Database Management</option>
-            <option value="Operating Systems">Operating Systems</option>
-            <option value="Digital Signal Processing">Digital Signal Processing</option>
-            <option value="Thermodynamics">Thermodynamics</option>
-            <option value="Structural Mechanics">Structural Mechanics</option>
-            <option value="Web Architectures">Web Architectures</option>
+          <select className="filter-select" value={filters.grade} onChange={(e) => setFilter('grade', e.target.value)} aria-label="Filter by grade">
+            <option value="">All grades</option>
+            {GRADES.map((g) => <option key={g} value={g}>Grade {g}</option>)}
           </select>
-
-          {/* Assessment Type Filter */}
-          <select
-            className="filter-select"
-            value={assessmentType}
-            onChange={(e) => setAssessmentType(e.target.value)}
-            aria-label="Filter by assessment type"
-          >
-            <option value="">All Types</option>
-            <option value="Mid-Term Exam">Mid-Term Exam</option>
-            <option value="Unit Test">Unit Test</option>
-            <option value="Quiz">Quiz</option>
-            <option value="Lab Practical">Lab Practical</option>
+          <select className="filter-select" value={filters.section} onChange={(e) => setFilter('section', e.target.value)} aria-label="Filter by section">
+            <option value="">All sections</option>
+            {SECTIONS.map((s) => <option key={s} value={s}>Section {s}</option>)}
           </select>
-
-          {/* Result Status Filter */}
-          <select
-            className="filter-select"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            aria-label="Filter by result status"
-          >
-            <option value="">All Results</option>
-            <option value="Pass">Pass</option>
-            <option value="Fail">Fail</option>
-          </select>
-
-          {/* Reset Filters */}
-          {isFiltered && (
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={RotateCcw}
-              onClick={handleResetFilters}
-              title="Reset all filters"
-            >
-              Reset
-            </Button>
-          )}
+          {isFiltered && <Button variant="secondary" size="sm" icon={RotateCcw} onClick={reset}>Reset</Button>}
         </div>
-
-        {/* Count Indicator */}
         <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-          Showing {assessments.length} assessment record{assessments.length === 1 ? '' : 's'}
+          {assessments.length} assessment{assessments.length === 1 ? '' : 's'}
         </div>
       </div>
 
-      {/* Main Assessment Results Table & Conditional States */}
-      {loading && <LoadingState message="Retrieving assessment evaluation results and performance indicators..." />}
-
-      {!loading && error && (
-        <ErrorState
-          title="Academic Service Error"
-          message={error}
-          onRetry={loadData}
-        />
-      )}
-
+      {loading && assessments.length === 0 && <LoadingState message="Loading assessments..." />}
+      {!loading && error && <ErrorState title="Unable to Load Assessments" message={error} onRetry={load} />}
       {!loading && !error && assessments.length === 0 && (
         <EmptyState
-          title="No Assessment Records Found"
-          message="No evaluation records matched your active department, course, or student search filters."
-          actionLabel="Clear Filters"
-          onAction={handleResetFilters}
+          icon={BookOpen}
+          title={isFiltered ? 'No Assessments Match' : 'No Assessments Yet'}
+          message={isFiltered ? 'Try clearing the filters.' : 'Create an assessment to start recording marks.'}
+          actionLabel={isFiltered ? 'Reset Filters' : can(PERMISSIONS.ASSESSMENT_CREATE) ? 'New Assessment' : undefined}
+          onAction={isFiltered ? reset : () => setCreating(true)}
         />
       )}
 
-      {!loading && !error && assessments.length > 0 && (
-        <div className="card">
+      {!error && assessments.length > 0 && (
+        <div className="card" style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Student Info</th>
-                  <th>Subject Course & Assessment</th>
-                  <th>Score / Max</th>
-                  <th>Pass Cutoff</th>
-                  <th>Class Average</th>
-                  <th>Evaluation Result</th>
-                  <th>Academic Indicator / Alert</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
+                  <th>Assessment</th>
+                  <th>Class</th>
+                  <th>Date</th>
+                  <th>Marks entered</th>
+                  <th>Class average</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {assessments.map((rec) => {
-                  const percentage = Math.round((rec.score / rec.maxScore) * 100);
-
-                  return (
-                    <tr key={rec.id}>
-                      {/* Student */}
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{rec.studentName}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                          {rec.studentId} • {rec.department} (Sem {rec.semester})
+                {assessments.map((a) => (
+                  <tr key={a.id}>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{a.subject}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                        {a.title} · out of {a.maxMarks}
+                      </div>
+                    </td>
+                    <td style={{ fontSize: '12px' }}>{formatClass(a.grade, a.section)}</td>
+                    <td style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>{formatDate(a.assessmentDate)}</td>
+                    <td>
+                      <span style={{ fontWeight: 600 }}>{a.marksCount}</span>
+                      <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}> / {a.classSize}</span>
+                      {a.missingMarks > 0 && (
+                        <div style={{ fontSize: '11px', color: 'var(--color-risk-medium)', fontWeight: 600 }}>
+                          {a.missingMarks} missing
                         </div>
-                      </td>
-
-                      {/* Course & Assessment */}
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{rec.course}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                          {rec.assessmentName} • <span style={{ color: 'var(--color-text-muted)' }}>{rec.assessmentType}</span>
-                        </div>
-                      </td>
-
-                      {/* Score / Max */}
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontWeight: 700, fontSize: '14px' }}>
-                            {rec.score}
-                          </span>
-                          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                            / {rec.maxScore}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              padding: '1px 6px',
-                              borderRadius: 'var(--radius-full)',
-                              backgroundColor:
-                                rec.status === 'Pass'
-                                  ? 'var(--color-risk-low-subtle)'
-                                  : 'var(--color-risk-high-subtle)',
-                              color:
-                                rec.status === 'Pass'
-                                  ? 'var(--color-risk-low)'
-                                  : 'var(--color-risk-high)',
-                            }}
-                          >
-                            {percentage}%
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Cutoff */}
-                      <td style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                        {rec.passingScore}
-                      </td>
-
-                      {/* Class Average */}
-                      <td style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                        {rec.classAverage}
-                      </td>
-
-                      {/* Result Badge */}
-                      <td>
-                        <Badge type="result" value={rec.status} />
-                      </td>
-
-                      {/* Early Warning / Academic Alert */}
-                      <td style={{ fontSize: '12px', color: 'var(--color-text-secondary)', maxWidth: '240px' }}>
-                        {rec.academicAlert}
-                      </td>
-
-                      {/* Action */}
-                      <td style={{ textAlign: 'right' }}>
-                        <Link to={`/students/${rec.studentId}`}>
-                          <Button variant="outline" size="sm" icon={ExternalLink}>
-                            Profile
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 600, color: percentTone(a.averagePercentage) }}>{formatPercent(a.averagePercentage)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Button
+                        variant={a.missingMarks > 0 && can(PERMISSIONS.MARKS_RECORD) ? 'primary' : 'secondary'}
+                        size="sm"
+                        icon={can(PERMISSIONS.MARKS_RECORD) ? PenLine : Eye}
+                        onClick={() => setSheetId(a.id)}
+                        aria-label={`${can(PERMISSIONS.MARKS_RECORD) ? 'Enter marks for' : 'View marks for'} ${a.subject} ${a.title}, ${formatClass(a.grade, a.section)}`}
+                      >
+                        {can(PERMISSIONS.MARKS_RECORD) ? 'Marks' : 'View'}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Record Marks Modal Form */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Record Student Assessment Marks"
-        footer={
-          <>
-            <Button variant="secondary" size="md" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              type="submit"
-              onClick={handleRecordMarks}
-              disabled={submitting || !formData.studentName || !formData.score}
-            >
-              {submitting ? 'Recording...' : 'Save Assessment Marks'}
-            </Button>
-          </>
-        }
-      >
-        <form onSubmit={handleRecordMarks} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {successMsg && (
-            <div
-              style={{
-                padding: '10px 14px',
-                backgroundColor: 'var(--color-risk-low-subtle)',
-                color: 'var(--color-risk-low)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontWeight: 600,
-              }}
-            >
-              <CheckCircle2 size={16} />
-              {successMsg}
-            </div>
-          )}
+      {creating && (
+        <AssessmentFormModal
+          onClose={() => setCreating(false)}
+          onCreated={(created) => {
+            setCreating(false);
+            setNotice(`Created ${created.subject} · ${created.title} for ${formatClass(created.grade, created.section)}.`);
+            load();
+            setSheetId(created.id);
+          }}
+        />
+      )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="studentId">Student ID *</label>
-              <input
-                id="studentId"
-                className="form-input"
-                type="text"
-                required
-                value={formData.studentId}
-                onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="studentName">Student Name *</label>
-              <input
-                id="studentName"
-                className="form-input"
-                type="text"
-                required
-                value={formData.studentName}
-                onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="course">Subject Course *</label>
-              <input
-                id="course"
-                className="form-input"
-                type="text"
-                required
-                value={formData.course}
-                onChange={(e) => setFormData({ ...formData, course: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="assessmentType">Assessment Type</label>
-              <select
-                id="assessmentType"
-                className="form-select"
-                value={formData.assessmentType}
-                onChange={(e) => setFormData({ ...formData, assessmentType: e.target.value })}
-              >
-                <option value="Mid-Term Exam">Mid-Term Exam</option>
-                <option value="Unit Test">Unit Test</option>
-                <option value="Quiz">Quiz</option>
-                <option value="Lab Practical">Lab Practical</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="assessmentName">Assessment Title</label>
-            <input
-              id="assessmentName"
-              className="form-input"
-              type="text"
-              required
-              placeholder="e.g. Mid-Term Exam - Algorithms"
-              value={formData.assessmentName}
-              onChange={(e) => setFormData({ ...formData, assessmentName: e.target.value })}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="score">Student Score *</label>
-              <input
-                id="score"
-                className="form-input"
-                type="number"
-                min="0"
-                step="0.5"
-                required
-                value={formData.score}
-                onChange={(e) => setFormData({ ...formData, score: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="maxScore">Max Score *</label>
-              <input
-                id="maxScore"
-                className="form-input"
-                type="number"
-                min="1"
-                required
-                value={formData.maxScore}
-                onChange={(e) => setFormData({ ...formData, maxScore: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="passingScore">Pass Cutoff *</label>
-              <input
-                id="passingScore"
-                className="form-input"
-                type="number"
-                min="1"
-                required
-                value={formData.passingScore}
-                onChange={(e) => setFormData({ ...formData, passingScore: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-            Calculated Status:{' '}
-            <strong
-              style={{
-                color:
-                  parseFloat(formData.score) >= parseFloat(formData.passingScore)
-                    ? 'var(--color-risk-low)'
-                    : 'var(--color-risk-high)',
-              }}
-            >
-              {parseFloat(formData.score) >= parseFloat(formData.passingScore) ? 'Pass' : 'Fail (Academic Alert)'}
-            </strong>
-          </div>
-        </form>
-      </Modal>
+      {sheetId && (
+        <MarksSheetModal
+          assessmentId={sheetId}
+          onClose={() => setSheetId(null)}
+          onSaved={(result, assessment) => {
+            setSheetId(null);
+            const parts = [];
+            if (result.created) parts.push(`${result.created} new`);
+            if (result.updated) parts.push(`${result.updated} corrected`);
+            setNotice(`Saved marks for ${assessment.subject} · ${assessment.title} (${parts.join(', ')}). Risk indicators updated.`);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

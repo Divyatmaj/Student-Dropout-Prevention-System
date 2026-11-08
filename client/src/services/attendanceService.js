@@ -4,6 +4,7 @@ import { apiClient, ApiError, USE_MOCKS, mockDelay, buildQuery } from './api.js'
 import { getMockSessionUser } from './authService.js';
 import { mockAttendanceRecords, nextMockAttendanceId } from '../data/mockAttendanceData.js';
 import { mockStudentsList } from '../data/mockStudentsData.js';
+import { recalculateMockRisk } from '../data/mockRiskStore.js';
 import { STUDENT_STATUS } from '../constants/students.js';
 import { todayISO } from '../utils/formatters.js';
 
@@ -266,6 +267,7 @@ export async function recordAttendance({ studentId, date, status, note = '' }) {
 
   const record = { id: nextMockAttendanceId(), studentId, date, status, note: note.trim(), ...currentRecorder() };
   mockAttendanceRecords.push(record);
+  recalculateMockRisk(studentId);
   return withStudent(record);
 }
 
@@ -300,6 +302,7 @@ export async function saveClassAttendance({ date, entries }) {
     return withStudent(record);
   });
 
+  entries.forEach(({ studentId }) => recalculateMockRisk(studentId));
   return { created, updated, records: saved };
 }
 
@@ -319,6 +322,7 @@ export async function updateAttendance(id, { status, note }) {
   }
   if (status !== undefined) record.status = status;
   if (note !== undefined) record.note = note.trim();
+  recalculateMockRisk(record.studentId);
   return withStudent(record);
 }
 
@@ -337,6 +341,7 @@ export async function deleteAttendance(id, reason) {
   }
   const record = findRecord(id);
   mockAttendanceRecords.splice(mockAttendanceRecords.indexOf(record), 1);
+  recalculateMockRisk(record.studentId);
   return null;
 }
 

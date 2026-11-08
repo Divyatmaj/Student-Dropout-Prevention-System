@@ -393,9 +393,14 @@ export default function Students() {
                         <>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                             <Badge type="risk" value={student.riskCategory} />
-                            {student.riskScore !== null && student.riskScore !== undefined && (
+                            {student.riskCategory !== 'INSUFFICIENT_DATA' && student.riskScore !== null && (
                               <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
                                 {student.riskScore}/100
+                              </span>
+                            )}
+                            {student.riskDataStatus === 'PROVISIONAL' && (
+                              <span style={{ fontSize: '11px', color: '#92400e', fontWeight: 600 }} title="Fewer than 10 school days or no marks recorded">
+                                provisional
                               </span>
                             )}
                           </div>

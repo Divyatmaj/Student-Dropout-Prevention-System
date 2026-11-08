@@ -37,10 +37,6 @@ export const mockStudentsList = [
     supportNotes: 'Family reported difficulty paying for transport after a job loss. Check whether bus pass support is available.',
     assignedTeacherId: CLASS_TEACHER.id,
     assignedTeacherName: CLASS_TEACHER.name,
-    // computed by the API (risk fields until risk rules are wired in)
-    riskScore: 75,
-    riskCategory: 'HIGH',
-    topRiskReason: 'Attendance below 75% (61.9%)',
   },
   {
     id: 'STU-1089',
@@ -58,9 +54,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    riskScore: 55,
-    riskCategory: 'HIGH',
-    topRiskReason: 'Attendance below 75% (66.7%)',
   },
   {
     id: 'STU-1120',
@@ -78,9 +71,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: CLASS_TEACHER.id,
     assignedTeacherName: CLASS_TEACHER.name,
-    riskScore: 55,
-    riskCategory: 'HIGH',
-    topRiskReason: '5 consecutive absences',
   },
   {
     id: 'STU-1194',
@@ -98,9 +88,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    riskScore: 35,
-    riskCategory: 'MEDIUM',
-    topRiskReason: 'Average score dropped 20+ points',
   },
   {
     id: 'STU-1205',
@@ -118,9 +105,6 @@ export const mockStudentsList = [
     supportNotes: 'Works part-time at the family shop on weekday mornings.',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    riskScore: 25,
-    riskCategory: 'MEDIUM',
-    topRiskReason: 'Attendance between 75% and 85% (81.0%)',
   },
   {
     id: 'STU-1231',
@@ -138,9 +122,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: CLASS_TEACHER.id,
     assignedTeacherName: CLASS_TEACHER.name,
-    riskScore: 25,
-    riskCategory: 'MEDIUM',
-    topRiskReason: '3 consecutive absences',
   },
   {
     id: 'STU-1011',
@@ -158,9 +139,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    riskScore: 0,
-    riskCategory: 'LOW',
-    topRiskReason: null,
   },
   {
     id: 'STU-1025',
@@ -178,9 +156,6 @@ export const mockStudentsList = [
     supportNotes: '',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    riskScore: 0,
-    riskCategory: 'LOW',
-    topRiskReason: null,
   },
   {
     id: 'STU-1250',
@@ -198,9 +173,6 @@ export const mockStudentsList = [
     supportNotes: 'Joined mid-term from another district.',
     assignedTeacherId: CLASS_TEACHER.id,
     assignedTeacherName: CLASS_TEACHER.name,
-    riskScore: null,
-    riskCategory: 'INSUFFICIENT_DATA',
-    topRiskReason: 'Not enough attendance or marks recorded yet',
   },
   {
     id: 'STU-0987',
@@ -218,8 +190,5 @@ export const mockStudentsList = [
     supportNotes: 'Family relocated to Pune in October 2026.',
     assignedTeacherId: null,
     assignedTeacherName: null,
-    riskScore: null,
-    riskCategory: null,
-    topRiskReason: null,
   },
 ];

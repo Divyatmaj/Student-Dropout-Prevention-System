@@ -15,6 +15,8 @@ import {
   Info,
   CheckCircle2,
   X,
+  ClipboardCheck,
+  RefreshCw,
 } from 'lucide-react';
 
 import Badge from '../components/common/Badge.jsx';
@@ -24,6 +26,9 @@ import ErrorState from '../components/common/ErrorState.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
 import StudentFormModal from '../components/students/StudentFormModal.jsx';
 import StudentStatusModal from '../components/students/StudentStatusModal.jsx';
+import RiskExplanation, { ReviewStatus } from '../components/risk/RiskExplanation.jsx';
+import ReviewRiskModal from '../components/risk/ReviewRiskModal.jsx';
+import { recalculateStudentRisk } from '../services/riskService.js';
 import '../components/common/common.css';
 
 import { getStudentSummary } from '../services/studentService.js';
@@ -79,6 +84,8 @@ export default function StudentDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -142,9 +149,27 @@ export default function StudentDetail() {
   const isActive = student.status === STUDENT_STATUS.ACTIVE;
   const riskTone = RISK_TONES[risk?.category] || RISK_TONES.INSUFFICIENT_DATA;
 
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      const { assessment, previous } = await recalculateStudentRisk(student.id);
+      setNotice(
+        previous && previous.score === assessment.score && previous.category === assessment.category
+          ? 'Risk recalculated — no change.'
+          : `Risk recalculated: ${previous ? `${previous.score} → ` : ''}${assessment.score}.`
+      );
+      await fetchProfile();
+    } catch (err) {
+      setNotice(err.message || 'Recalculation failed.');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   const handleSaved = (message) => {
     setEditOpen(false);
     setStatusOpen(false);
+    setReviewOpen(false);
     setNotice(message);
     fetchProfile();
   };
@@ -248,32 +273,33 @@ export default function StudentDetail() {
       )}
 
       {/* Risk indicator */}
-      {isActive && risk?.category && (
-        <div
-          style={{
-            padding: '16px 20px',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: '24px',
-            backgroundColor: riskTone.bg,
-            borderLeft: `4px solid ${riskTone.fg}`,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '14px',
-          }}
-        >
-          <AlertTriangle size={20} color={riskTone.fg} style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: '13px', color: riskTone.fg }}>
-              {risk.category === 'INSUFFICIENT_DATA'
-                ? 'Not enough data for a risk indicator yet'
-                : `Risk indicator: ${risk.score}/100`}
+      {isActive && risk && (
+        <div className="card" style={{ marginBottom: '24px', borderLeft: `4px solid ${riskTone.fg}` }}>
+          <div className="card-header">
+            <div>
+              <h3 className="card-title">
+                <AlertTriangle size={18} color={riskTone.fg} />
+                Risk Indicator
+              </h3>
+              <div style={{ marginTop: '4px' }}>
+                <ReviewStatus assessment={risk} />
+              </div>
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--color-text-primary)', marginTop: '4px', lineHeight: 1.5 }}>
-              {risk.topReason || 'No risk rules were triggered.'}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {can(PERMISSIONS.RISK_REVIEW) && risk.needsReview && (
+                <Button variant="primary" size="sm" icon={ClipboardCheck} onClick={() => setReviewOpen(true)}>
+                  Mark Reviewed
+                </Button>
+              )}
+              {can(PERMISSIONS.RISK_RECALCULATE) && (
+                <Button variant="secondary" size="sm" icon={RefreshCw} onClick={handleRecalculate} disabled={recalculating}>
+                  {recalculating ? 'Recalculating...' : 'Recalculate'}
+                </Button>
+              )}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
-              This is a rule-based indicator to prompt staff review — not a prediction about the student.
-            </div>
+          </div>
+          <div className="card-body">
+            <RiskExplanation assessment={risk} />
           </div>
         </div>
       )}
@@ -493,6 +519,14 @@ export default function StudentDetail() {
         onClose={() => setEditOpen(false)}
         onSaved={(saved) => handleSaved(`Saved changes to ${saved.fullName}.`)}
       />
+      {reviewOpen && risk && (
+        <ReviewRiskModal
+          assessment={risk}
+          studentName={student.fullName}
+          onClose={() => setReviewOpen(false)}
+          onReviewed={() => handleSaved('Marked the risk flag as reviewed.')}
+        />
+      )}
       <StudentStatusModal
         isOpen={statusOpen}
         student={student}

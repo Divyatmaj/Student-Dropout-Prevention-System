@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, Clock, CheckCircle2, XCircle, FileText, HelpCircle } from 'lucide-react';
 import { STUDENT_STATUS_LABELS } from '../../constants/students.js';
+import { DATA_STATUS_LABELS } from '../../constants/risk.js';
 
 export default function Badge({ type = 'risk', value, children }) {
   const normalized = (value || children || '').toString().toLowerCase().replace(/\s+/g, '_');
@@ -53,6 +54,14 @@ export default function Badge({ type = 'risk', value, children }) {
       <span className={`badge badge-attendance-${normalized}`}>
         {icon}
         <span>{label}</span>
+      </span>
+    );
+  }
+
+  if (type === 'dataStatus') {
+    return (
+      <span className={`badge badge-data-${normalized}`} title="How complete the data behind this score is">
+        {DATA_STATUS_LABELS[(value || '').toUpperCase()] || value}
       </span>
     );
   }

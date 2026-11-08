@@ -1,9 +1,10 @@
-import { summarizeAttendance } from '@udaan/shared';
+import { summarizeAttendance, averagePercentage, toPercentage } from '@udaan/shared';
 
 import { apiClient, ApiError, USE_MOCKS, mockDelay, buildQuery } from './api.js';
 import { mockRecordsForStudent } from './attendanceService.js';
 import { mockStudentsList } from '../data/mockStudentsData.js';
-import { mockAssessmentResults } from '../data/mockAcademicsData.js';
+import { mockMarksForStudent } from '../data/mockAcademicsData.js';
+import { mockRiskAssessments, recalculateMockRisk, needsReview } from '../data/mockRiskStore.js';
 import { mockInterventionsList } from '../data/mockInterventionsData.js';
 import { STUDENTS_PAGE_SIZE, STUDENT_STATUS } from '../constants/students.js';
 
@@ -37,9 +38,14 @@ function findMockStudent(id) {
 
 /** Student plus the computed fields list views show (API joins these in). */
 function withComputedFields(student) {
+  const risk = mockRiskAssessments.get(student.id);
   return {
     ...student,
     attendanceRate: summarizeAttendance(mockRecordsForStudent(student.id)).attendancePercentage,
+    riskScore: risk?.score ?? null,
+    riskCategory: risk?.category ?? null,
+    riskDataStatus: risk?.dataStatus ?? null,
+    topRiskReason: risk?.reasons[0]?.label ?? null,
   };
 }
 
@@ -70,7 +76,7 @@ export async function getStudents(filters = {}) {
   }
 
   await mockDelay(300);
-  let filtered = [...mockStudentsList];
+  let filtered = mockStudentsList.map(withComputedFields);
 
   if (search.trim()) {
     const q = search.toLowerCase().trim();
@@ -87,7 +93,7 @@ export async function getStudents(filters = {}) {
   const start = (page - 1) * limit;
 
   return {
-    students: filtered.slice(start, start + limit).map(withComputedFields),
+    students: filtered.slice(start, start + limit),
     total: filtered.length,
     page,
     limit,
@@ -121,23 +127,13 @@ export async function getStudentSummary(id) {
     recent: attendanceRecords.slice(0, 10),
   };
 
-  const marks = mockAssessmentResults
-    .filter((r) => r.studentId === id)
-    .map((r) => ({
-      id: r.id,
-      title: r.assessmentName,
-      subject: r.course,
-      assessmentDate: r.date,
-      score: r.score,
-      maxMarks: r.maxScore,
-      percentage: Math.round((r.score / r.maxScore) * 1000) / 10,
-    }));
+  const marks = mockMarksForStudent(id)
+    .map((m) => ({ ...m, percentage: toPercentage(m.score, m.maxMarks) }))
+    .sort((x, y) => (x.assessmentDate < y.assessmentDate ? 1 : x.assessmentDate > y.assessmentDate ? -1 : x.subject.localeCompare(y.subject)));
 
   const academics = {
     assessmentsRecorded: marks.length,
-    averagePercentage: marks.length
-      ? Math.round((marks.reduce((sum, m) => sum + m.percentage, 0) / marks.length) * 10) / 10
-      : null,
+    averagePercentage: averagePercentage(marks),
     recent: marks,
   };
 
@@ -153,11 +149,8 @@ export async function getStudentSummary(id) {
       notes: i.notes,
     }));
 
-  const risk = {
-    score: student.riskScore,
-    category: student.riskCategory,
-    topReason: student.topRiskReason,
-  };
+  const assessment = mockRiskAssessments.get(id);
+  const risk = assessment ? { ...assessment, needsReview: needsReview(assessment) } : null;
 
   return { student: withComputedFields(student), attendance, academics, risk, interventions };
 }
@@ -180,11 +173,9 @@ export async function createStudent(payload) {
     status: STUDENT_STATUS.ACTIVE,
     assignedTeacherId: null,
     assignedTeacherName: null,
-    riskScore: null,
-    riskCategory: 'INSUFFICIENT_DATA',
-    topRiskReason: 'Not enough attendance or marks recorded yet',
   };
   mockStudentsList.unshift(student);
+  recalculateMockRisk(student.id);
   return withComputedFields(student);
 }
 
@@ -202,6 +193,7 @@ export async function updateStudent(id, payload) {
   if (payload.studentCode) assertUniqueCode(payload.studentCode, id);
 
   Object.assign(student, payload);
+  recalculateMockRisk(id); // e.g. the financial-barrier flag changed
   return withComputedFields(student);
 }
 
@@ -224,5 +216,6 @@ export async function updateStudentStatus(id, status) {
   }
   const student = findMockStudent(id);
   student.status = status;
+  recalculateMockRisk(id); // inactive students drop out of risk lists
   return withComputedFields(student);
 }

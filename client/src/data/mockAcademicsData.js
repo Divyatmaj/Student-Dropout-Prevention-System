@@ -1,290 +1,119 @@
 /**
- * ============================================================================
- * Backend Contract & Mock Dataset for Academic Performance Module
- * ============================================================================
- * 
- * BACKEND DEVELOPER INTEGRATION NOTES:
- * ----------------------------------------------------------------------------
- * This file models the exact schema for the Express + PostgreSQL backend.
- * 
- * 1. GET /assessments
- *    - Query params supported:
- *        search: string (student name or ID)
- *        department: string
- *        course: string
- *        assessmentType: string
- *        status: 'Pass' | 'Fail'
- *    - Expected Response: {
- *        total: number,
- *        assessments: AssessmentResultItem[]
- *      }
- * 
- * 2. GET /assessments/overview
- *    - Expected Response: {
- *        averageGPA: number,
- *        overallPassRate: number,
- *        studentsWithAcademicAlerts: number,
- *        totalAssessmentsCount: number,
- *        subjectDifficulty: [
- *          {
- *            course: string,
- *            department: string,
- *            passRate: number,
- *            averageScore: number,
- *            maxScore: number,
- *            difficultyLevel: 'Normal' | 'Moderate' | 'High'
- *          }
- *        ]
- *      }
- * 
- * 3. POST /marks
- *    - Request Body: {
- *        studentId: string,
- *        course: string,
- *        assessmentName: string,
- *        assessmentType: 'Mid-Term Exam' | 'Unit Test' | 'Quiz' | 'Lab Practical',
- *        score: number,
- *        maxScore: number,
- *        passingScore: number,
- *        remarks?: string
- *      }
- *    - Expected Response: { success: true, record: AssessmentResultItem }
- * ============================================================================
+ * Mock assessments and marks for the Udaan web app (VITE_USE_MOCKS=true only).
+ *
+ * Shapes match the Udaan API:
+ *   Assessment  { id, title, subject, grade, section, assessmentDate, maxMarks,
+ *                 createdById, createdByName }
+ *   StudentMark { id, studentId, assessmentId, score, recordedById, recordedByName }
+ *
+ * Contract:
+ *   GET    /assessments?search=&grade=&section=&subject=   → { assessments, total }
+ *   GET    /assessments/overview                          → see academicService
+ *   GET    /assessments/:id      → { assessment, students: [{ student, mark | null }] }
+ *   POST   /assessments          body { title, subject, grade, section, assessmentDate, maxMarks }
+ *   POST   /marks                body { studentId, assessmentId, score }   (409 on duplicate)
+ *   POST   /marks/bulk           body { assessmentId, entries: [{ studentId, score }] }
+ *                                → { created, updated }   (upsert per student + assessment)
+ *   PATCH  /marks/:id            body { score }
+ *
+ * The planned percentages below give each demo student a believable story
+ * (e.g. Aarav's Mathematics result falls 24 points between unit tests).
  */
+import { mockStudentsList } from './mockStudentsData.js';
 
-export const mockAcademicOverview = {
-  averageGPA: 7.42,
-  overallPassRate: 86.8,
-  studentsWithAcademicAlerts: 160,
-  totalAssessmentsEvaluated: 18,
-  firstAttemptClearance: 79.2,
-  subjectDifficulty: [
-    {
-      course: 'Operating Systems',
-      department: 'Computer Science',
-      passRate: 68.2,
-      averageScore: 17.5,
-      maxScore: 25,
-      difficultyLevel: 'High',
-      flaggedStudentsCount: 28,
-    },
-    {
-      course: 'Structural Mechanics',
-      department: 'Civil Engineering',
-      passRate: 69.0,
-      averageScore: 32.2,
-      maxScore: 50,
-      difficultyLevel: 'High',
-      flaggedStudentsCount: 22,
-    },
-    {
-      course: 'Thermodynamics',
-      department: 'Mechanical',
-      passRate: 70.5,
-      averageScore: 31.5,
-      maxScore: 50,
-      difficultyLevel: 'Moderate',
-      flaggedStudentsCount: 19,
-    },
-    {
-      course: 'Data Structures',
-      department: 'Computer Science',
-      passRate: 72.4,
-      averageScore: 36.2,
-      maxScore: 50,
-      difficultyLevel: 'Moderate',
-      flaggedStudentsCount: 24,
-    },
-    {
-      course: 'Digital Signal Processing',
-      department: 'Electronics',
-      passRate: 78.5,
-      averageScore: 37.0,
-      maxScore: 50,
-      difficultyLevel: 'Normal',
-      flaggedStudentsCount: 14,
-    },
-    {
-      course: 'Database Management',
-      department: 'Computer Science',
-      passRate: 84.5,
-      averageScore: 37.8,
-      maxScore: 50,
-      difficultyLevel: 'Normal',
-      flaggedStudentsCount: 11,
-    },
-  ],
+const TEACHER = { id: 'USR-003', name: 'Neha Gupta' };
+const ADMIN = { id: 'USR-001', name: 'Radhika Sharma' };
+
+const PLAN_SUBJECTS = ['Mathematics', 'Science', 'English'];
+const TESTS = [
+  { key: 'UT1', title: 'Unit Test 1', date: '2026-08-14', maxMarks: 25 },
+  { key: 'UT2', title: 'Unit Test 2', date: '2026-10-16', maxMarks: 25 },
+];
+
+/** Planned [Unit Test 1 %, Unit Test 2 %] per subject for each student. */
+const MARK_PLAN = {
+  'STU-1042': { Mathematics: [72, 48], Science: [60, 56], English: [64, 60] },
+  'STU-1089': { Mathematics: [68, 56], Science: [64, 60], English: [72, 68] },
+  'STU-1120': { Mathematics: [60, 56], Science: [64, 60], English: [56, 56] },
+  'STU-1194': { Mathematics: [76, 72], Science: [84, 60], English: [80, 80] },
+  'STU-1205': { Mathematics: [64, 68], Science: [68, 64], English: [72, 72] },
+  'STU-1231': { Mathematics: [76, 72], Science: [72, 72], English: [80, 76] },
+  'STU-1011': { Mathematics: [92, 96], Science: [88, 92], English: [96, 92] },
+  'STU-1025': { Mathematics: [88, 88], Science: [92, 88], English: [84, 88] },
+  'STU-0987': { Mathematics: [80, null], Science: [76, null], English: [84, null] }, // left before UT2
 };
 
-export const mockAssessmentResults = [
-  {
-    id: 'ASM-101',
-    studentId: 'STU-1042',
-    studentName: 'Aarav Sharma',
-    department: 'Computer Science',
-    semester: 4,
-    course: 'Data Structures',
-    assessmentName: 'Mid-Term Exam',
-    assessmentType: 'Mid-Term Exam',
-    score: 14,
-    maxScore: 50,
-    passingScore: 20,
-    classAverage: 36.2,
-    status: 'Fail',
-    date: '2026-11-02',
-    academicAlert: 'Critical: 3rd failed core exam. Urgent remedial tutorial recommended.',
-  },
-  {
-    id: 'ASM-102',
-    studentId: 'STU-1042',
-    studentName: 'Aarav Sharma',
-    department: 'Computer Science',
-    semester: 4,
-    course: 'Database Management',
-    assessmentName: 'Unit Test 2',
-    assessmentType: 'Unit Test',
-    score: 18,
-    maxScore: 50,
-    passingScore: 20,
-    classAverage: 37.8,
-    status: 'Fail',
-    date: '2026-10-28',
-    academicAlert: 'Below passing threshold in SQL schema queries.',
-  },
-  {
-    id: 'ASM-103',
-    studentId: 'STU-1042',
-    studentName: 'Aarav Sharma',
-    department: 'Computer Science',
-    semester: 4,
-    course: 'Operating Systems',
-    assessmentName: 'Process Scheduling Quiz',
-    assessmentType: 'Quiz',
-    score: 8,
-    maxScore: 25,
-    passingScore: 10,
-    classAverage: 17.5,
-    status: 'Fail',
-    date: '2026-10-20',
-    academicAlert: 'Failed introductory quiz on memory allocation.',
-  },
-  {
-    id: 'ASM-104',
-    studentId: 'STU-1089',
-    studentName: 'Sneha Patel',
-    department: 'Electronics',
-    semester: 6,
-    course: 'Digital Signal Processing',
-    assessmentName: 'Mid-Term Exam',
-    assessmentType: 'Mid-Term Exam',
-    score: 17,
-    maxScore: 50,
-    passingScore: 20,
-    classAverage: 37.0,
-    status: 'Fail',
-    date: '2026-11-01',
-    academicAlert: 'Failed mid-term evaluation. Faculty counseling scheduled.',
-  },
-  {
-    id: 'ASM-105',
-    studentId: 'STU-1120',
-    studentName: 'Rohan Deshmukh',
-    department: 'Mechanical',
-    semester: 2,
-    course: 'Thermodynamics',
-    assessmentName: 'Heat Transfer Lab Test',
-    assessmentType: 'Lab Practical',
-    score: 9,
-    maxScore: 25,
-    passingScore: 10,
-    classAverage: 18.2,
-    status: 'Fail',
-    date: '2026-10-29',
-    academicAlert: 'Failed practical lab evaluation due to incomplete reports.',
-  },
-  {
-    id: 'ASM-106',
-    studentId: 'STU-1194',
-    studentName: 'Ananya Iyer',
-    department: 'Civil Engineering',
-    semester: 4,
-    course: 'Structural Mechanics',
-    assessmentName: 'Bending Moments Mid-Term',
-    assessmentType: 'Mid-Term Exam',
-    score: 19,
-    maxScore: 50,
-    passingScore: 20,
-    classAverage: 32.2,
-    status: 'Fail',
-    date: '2026-10-25',
-    academicAlert: 'Borderline fail (1 mark below cutoff). Review session advised.',
-  },
-  {
-    id: 'ASM-107',
-    studentId: 'STU-1205',
-    studentName: 'Vikram Joshi',
-    department: 'Information Tech',
-    semester: 6,
-    course: 'Web Architectures',
-    assessmentName: 'API Design Unit Test',
-    assessmentType: 'Unit Test',
-    score: 18,
-    maxScore: 50,
-    passingScore: 20,
-    classAverage: 35.5,
-    status: 'Fail',
-    date: '2026-10-24',
-    academicAlert: 'Needs revision in asynchronous programming models.',
-  },
-  {
-    id: 'ASM-108',
-    studentId: 'STU-1011',
-    studentName: 'Priya Nair',
-    department: 'Computer Science',
-    semester: 2,
-    course: 'Data Structures',
-    assessmentName: 'Mid-Term Exam',
-    assessmentType: 'Mid-Term Exam',
-    score: 44,
-    maxScore: 50,
-    passingScore: 20,
-    classAverage: 36.2,
-    status: 'Pass',
-    date: '2026-11-02',
-    academicAlert: 'Top decile performance in trees and algorithms.',
-  },
-  {
-    id: 'ASM-109',
-    studentId: 'STU-1025',
-    studentName: 'Karthik Rao',
-    department: 'Electronics',
-    semester: 4,
-    course: 'Digital Signal Processing',
-    assessmentName: 'Mid-Term Exam',
-    assessmentType: 'Mid-Term Exam',
-    score: 46,
-    maxScore: 50,
-    passingScore: 20,
-    classAverage: 37.0,
-    status: 'Pass',
-    date: '2026-11-01',
-    academicAlert: 'Excellent analytical score in FFT implementations.',
-  },
-  {
-    id: 'ASM-110',
-    studentId: 'STU-1231',
-    studentName: 'Pooja Verma',
-    department: 'Computer Science',
-    semester: 4,
-    course: 'Database Management',
-    assessmentName: 'Unit Test 2',
-    assessmentType: 'Unit Test',
-    score: 36,
-    maxScore: 50,
-    passingScore: 20,
-    classAverage: 37.8,
-    status: 'Pass',
-    date: '2026-10-28',
-    academicAlert: 'Consistent passing score meeting class standard.',
-  },
-];
+function generate() {
+  const assessments = [];
+  const marks = [];
+  let assessmentCounter = 1;
+  let markCounter = 1;
+
+  // One set of assessments per class with planned marks (Grade 6-A's only
+  // student joined in November, after these tests).
+  const classes = [...new Set(mockStudentsList.filter((s) => MARK_PLAN[s.id]).map((s) => `${s.grade}|${s.section}`))]
+    .map((key) => key.split('|'))
+    .sort((a, b) => Number(a[0]) - Number(b[0]) || a[1].localeCompare(b[1]));
+
+  classes.forEach(([grade, section]) => {
+    TESTS.forEach((test) => {
+      PLAN_SUBJECTS.forEach((subject) => {
+        const author = grade === '8' && section === 'A' ? TEACHER : ADMIN;
+        const assessment = {
+          id: `ASM-${String(assessmentCounter++).padStart(3, '0')}`,
+          title: test.title,
+          subject,
+          grade,
+          section,
+          assessmentDate: test.date,
+          maxMarks: test.maxMarks,
+          createdById: author.id,
+          createdByName: author.name,
+        };
+        assessments.push(assessment);
+
+        mockStudentsList
+          .filter((s) => s.grade === grade && s.section === section)
+          .forEach((student) => {
+            const planned = MARK_PLAN[student.id]?.[subject]?.[test.key === 'UT1' ? 0 : 1];
+            if (planned === null || planned === undefined) return;
+            const recorder = student.assignedTeacherId ? TEACHER : ADMIN;
+            marks.push({
+              id: `MRK-${String(markCounter++).padStart(4, '0')}`,
+              studentId: student.id,
+              assessmentId: assessment.id,
+              score: Math.round((planned / 100) * test.maxMarks * 2) / 2,
+              recordedById: recorder.id,
+              recordedByName: recorder.name,
+            });
+          });
+      });
+    });
+  });
+
+  return { assessments, marks };
+}
+
+const generated = generate();
+
+/** Mutable in-memory stores used by the mock services. */
+export const mockAssessments = generated.assessments;
+export const mockMarks = generated.marks;
+
+export function nextMockId(list, prefix, width) {
+  const max = list.reduce((acc, item) => Math.max(acc, Number(item.id.replace(/\D/g, '')) || 0), 0);
+  return `${prefix}-${String(max + 1).padStart(width, '0')}`;
+}
+
+/** A student's marks joined with assessment details (for risk and profiles). */
+export function mockMarksForStudent(studentId) {
+  return mockMarks
+    .filter((m) => m.studentId === studentId)
+    .map((m) => {
+      const a = mockAssessments.find((x) => x.id === m.assessmentId);
+      return a
+        ? { ...m, title: a.title, subject: a.subject, assessmentDate: a.assessmentDate, maxMarks: a.maxMarks }
+        : null;
+    })
+    .filter(Boolean);
+}

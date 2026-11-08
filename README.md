@@ -63,6 +63,24 @@ Udaan calculates attendance the same way in the web app and the API (see
 - Attendance % = (present + late) ÷ (present + late + absent).
 - Consecutive absences count the latest *recorded* school days, not calendar days.
 
+## Risk indicator
+
+Udaan's early-warning score (0–100) is a transparent rule table, implemented once in
+`shared/src/risk.js` and covered by unit tests:
+
+| Rule | Points |
+| --- | --- |
+| Attendance below 75% / from 75% to below 85% | +30 / +15 |
+| 3–4 / 5+ consecutive absent school days | +15 / +25 |
+| Same-subject result drop of 10–19.9 / 20+ percentage points | +10 / +20 |
+| Financial barrier reported | +10 |
+| Open intervention past its due date | +10 |
+
+Low 0–24, Medium 25–49, High 50+. With fewer than 10 recorded school days or no marks
+the score is **provisional**; with no usable data it is **insufficient data** (never
+"low"). Every score lists its reasons and must be reviewed by a person. It is a
+prioritisation aid for staff — not a prediction, and never grounds for punitive action.
+
 ## Environment variables
 
 | Variable             | Where   | Purpose                                              |

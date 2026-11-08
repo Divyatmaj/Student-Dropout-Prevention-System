@@ -1,569 +1,398 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  ShieldAlert,
   AlertTriangle,
   Clock,
   CheckCircle2,
-  ShieldCheck,
-  RefreshCw,
-  Search,
-  Filter,
-  ExternalLink,
-  PlusCircle,
   HelpCircle,
+  RefreshCw,
   RotateCcw,
-  Sparkles,
-  Info,
-  CalendarCheck,
+  ChevronDown,
+  ChevronUp,
+  ClipboardCheck,
+  PlusCircle,
   BookOpen,
 } from 'lucide-react';
+import { RISK_RULES, RISK_CATEGORY_BANDS, MIN_ELIGIBLE_SCHOOL_DAYS } from '@udaan/shared';
 
 import StatCard from '../components/common/StatCard.jsx';
+import SearchBar from '../components/common/SearchBar.jsx';
 import Badge from '../components/common/Badge.jsx';
 import Button from '../components/common/Button.jsx';
-import SearchBar from '../components/common/SearchBar.jsx';
-import Modal from '../components/common/Modal.jsx';
 import LoadingState from '../components/common/LoadingState.jsx';
 import ErrorState from '../components/common/ErrorState.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
+import RiskExplanation, { RiskScoreBar, ReviewStatus } from '../components/risk/RiskExplanation.jsx';
+import ReviewRiskModal from '../components/risk/ReviewRiskModal.jsx';
 import '../components/common/common.css';
 
 import {
   getRiskOverview,
-  getRiskStudents,
+  getRiskList,
   recalculateStudentRisk,
+  recalculateAllRisk,
 } from '../services/riskService.js';
+import { useAuth } from '../hooks/useAuth.js';
+import { PERMISSIONS } from '../utils/permissions.js';
+import { GRADES, SECTIONS, RISK_CATEGORY, RISK_CATEGORY_LABELS } from '../constants/students.js';
+import { DATA_STATUS_LABELS, RISK_REVIEW_FILTERS } from '../constants/risk.js';
+import { formatClass, formatDate } from '../utils/formatters.js';
+
+const DEFAULT_FILTERS = { category: '', dataStatus: '', grade: '', section: '', review: '' };
 
 export default function RiskMonitoring() {
+  const { can } = useAuth();
   const [overview, setOverview] = useState(null);
-  const [students, setStudents] = useState([]);
+  const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filters State
-  const [selectedTier, setSelectedTier] = useState('all'); // 'all' | 'high' | 'medium' | 'low'
   const [search, setSearch] = useState('');
-  const [department, setDepartment] = useState('');
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [expanded, setExpanded] = useState(null);
+  const [reviewing, setReviewing] = useState(null);
+  const [recalculating, setRecalculating] = useState(null); // studentId | 'all' | null
+  const [notice, setNotice] = useState('');
+  const [rulesOpen, setRulesOpen] = useState(false);
 
-  // Recalculating state for individual students
-  const [recalculatingId, setRecalculatingId] = useState(null);
-  const [recalculateFeedback, setRecalculateFeedback] = useState(null);
-
-  const loadData = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [overviewData, studentsData] = await Promise.all([
-        getRiskOverview(),
-        getRiskStudents({
-          tier: selectedTier,
-          department,
-          search,
-        }),
-      ]);
-      setOverview(overviewData);
-      setStudents(studentsData.students || []);
+      const [ov, list] = await Promise.all([getRiskOverview(), getRiskList({ ...filters, search })]);
+      setOverview(ov);
+      setAssessments(list.assessments || []);
     } catch (err) {
-      setError(err.message || 'Failed to retrieve risk categorization records.');
+      setError(err.message || 'Could not load risk indicators.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, search]);
 
   useEffect(() => {
-    loadData();
-  }, [selectedTier, department, search]);
+    const timer = setTimeout(load, search ? 250 : 0);
+    return () => clearTimeout(timer);
+  }, [load, search]);
 
-  const handleResetFilters = () => {
-    setSelectedTier('all');
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const reset = () => {
     setSearch('');
-    setDepartment('');
+    setFilters(DEFAULT_FILTERS);
   };
+  const isFiltered = search || Object.values(filters).some(Boolean);
 
-  const handleRecalculate = async (studentId, studentName) => {
-    setRecalculatingId(studentId);
-    setRecalculateFeedback(null);
+  const handleRecalculate = async (studentId, name) => {
+    setRecalculating(studentId);
     try {
-      const result = await recalculateStudentRisk(studentId);
-      setRecalculateFeedback({
-        studentId,
-        studentName,
-        message: `Risk re-evaluated: Student classified as ${result.newRisk.toUpperCase()} RISK based on latest attendance and marks.`,
-      });
-      loadData();
+      const { assessment, previous } = await recalculateStudentRisk(studentId);
+      const changed = !previous || previous.score !== assessment.score || previous.category !== assessment.category;
+      setNotice(
+        changed
+          ? `${name}: ${previous ? `${previous.score} → ` : ''}${assessment.score} (${RISK_CATEGORY_LABELS[assessment.category]}).`
+          : `${name}: no change (${assessment.score}, ${RISK_CATEGORY_LABELS[assessment.category]}).`
+      );
+      await load();
     } catch (err) {
-      alert(`Recalculation error: ${err.message}`);
+      setNotice(err.message || 'Recalculation failed.');
     } finally {
-      setRecalculatingId(null);
+      setRecalculating(null);
     }
   };
 
-  const isFiltered = selectedTier !== 'all' || search || department;
+  const handleRecalculateAll = async () => {
+    setRecalculating('all');
+    try {
+      const { processed, changed } = await recalculateAllRisk();
+      setNotice(`Recalculated ${processed} active students — ${changed} changed.`);
+      await load();
+    } catch (err) {
+      setNotice(err.message || 'Recalculation failed.');
+    } finally {
+      setRecalculating(null);
+    }
+  };
+
+  const filterByCategory = (category) => setFilters({ ...DEFAULT_FILTERS, category });
 
   return (
     <div>
-      {/* Page Header */}
       <div className="page-header">
         <div>
-          <h2 className="page-title">Risk Monitoring & Early Categorization</h2>
+          <h2 className="page-title">Risk Monitoring</h2>
           <p className="page-description">
-            Explainable, deterministic rule-based evaluation. Monitor High, Medium, and Low risk cohorts with transparent rationale behind every flag.
+            Transparent, rule-based indicators that help staff decide who to check in with first. Every
+            flag shows exactly why it was raised.
           </p>
         </div>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Button
-            variant="secondary"
-            size="md"
-            icon={RefreshCw}
-            onClick={loadData}
-          >
-            Refresh Rules
+        {can(PERMISSIONS.RISK_RECALCULATE_ALL) && (
+          <Button variant="secondary" size="md" icon={RefreshCw} onClick={handleRecalculateAll} disabled={recalculating !== null}>
+            {recalculating === 'all' ? 'Recalculating...' : 'Recalculate All'}
           </Button>
-          <Link to="/interventions">
-            <Button variant="primary" size="md" icon={PlusCircle}>
-              Schedule Intervention
-            </Button>
-          </Link>
-        </div>
+        )}
       </div>
 
-      {/* Transparent Rule-Based Architecture Banner */}
-      <div
-        className="card"
-        style={{
-          padding: '20px 24px',
-          marginBottom: '24px',
-          backgroundColor: 'var(--color-bg-surface)',
-          borderLeft: '4px solid var(--color-primary)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-          <div
-            style={{
-              padding: '8px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-primary-subtle)',
-              color: 'var(--color-primary)',
-            }}
-          >
-            <ShieldCheck size={22} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                Explainable Rule-Based Evaluation System
-              </h3>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: 'var(--radius-full)',
-                  backgroundColor: 'var(--color-primary-subtle)',
-                  color: 'var(--color-primary-dark)',
-                }}
-              >
-                No Black-Box AI
-              </span>
-            </div>
-            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
-              Udaan calculates student retention risk deterministically through verifiable institutional benchmarks.
-              Every classification has a clear, understandable reason:
-            </p>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '12px',
-                marginTop: '14px',
-              }}
-            >
-              <div
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-risk-high-subtle)',
-                  borderLeft: '3px solid var(--color-risk-high)',
-                  fontSize: '12px',
-                }}
-              >
-                <strong style={{ color: 'var(--color-risk-high)' }}>High Risk Rule:</strong> Attendance &lt; 65% OR &ge; 3 failed assessments. Immediate counselor outreach.
-              </div>
-
-              <div
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-risk-medium-subtle)',
-                  borderLeft: '3px solid var(--color-risk-medium)',
-                  fontSize: '12px',
-                }}
-              >
-                <strong style={{ color: 'var(--color-risk-medium)' }}>Medium Risk Rule:</strong> Attendance 65%–75% OR 1–2 failed tests. Faculty check-in & monitoring.
-              </div>
-
-              <div
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-risk-low-subtle)',
-                  borderLeft: '3px solid var(--color-risk-low)',
-                  fontSize: '12px',
-                }}
-              >
-                <strong style={{ color: 'var(--color-risk-low)' }}>Low Risk Rule:</strong> Attendance &gt; 75% AND 0 failed tests. Compliant academic standing.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recalculate Feedback Notification Toast */}
-      {recalculateFeedback && (
-        <div
-          style={{
-            padding: '14px 18px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--color-primary-subtle)',
-            border: '1px solid #bbf7d0',
-            color: 'var(--color-primary-dark)',
-            fontSize: '13px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={16} color="var(--color-primary)" />
-            <span>
-              <strong>{recalculateFeedback.studentName} ({recalculateFeedback.studentId}):</strong>{' '}
-              {recalculateFeedback.message}
-            </span>
-          </div>
-          <button
-            onClick={() => setRecalculateFeedback(null)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--color-primary-dark)',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '12px',
-            }}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Overview Stat Cards */}
       {overview && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-            gap: '16px',
-            marginBottom: '24px',
-          }}
-        >
-          <StatCard
-            title="High Risk (Critical)"
-            value={overview.highRiskCount.toLocaleString()}
-            icon={AlertTriangle}
-            iconColor="var(--color-risk-high)"
-            iconBg="var(--color-risk-high-subtle)"
-            badgeText={`${overview.highRiskPercentage}%`}
-            badgeType="high"
-            subtitle="Immediate intervention needed"
-          />
-          <StatCard
-            title="Medium Risk (Warning)"
-            value={overview.mediumRiskCount.toLocaleString()}
-            icon={Clock}
-            iconColor="var(--color-risk-medium)"
-            iconBg="var(--color-risk-medium-subtle)"
-            badgeText={`${overview.mediumRiskPercentage}%`}
-            badgeType="medium"
-            subtitle="Attendance or grade alert"
-          />
-          <StatCard
-            title="Low Risk (On Track)"
-            value={overview.lowRiskCount.toLocaleString()}
-            icon={CheckCircle2}
-            iconColor="var(--color-risk-low)"
-            iconBg="var(--color-risk-low-subtle)"
-            badgeText={`${overview.lowRiskPercentage}%`}
-            badgeType="low"
-            subtitle="Meets all retention targets"
-          />
-          <StatCard
-            title="Total Monitored Cohort"
-            value={overview.totalMonitored.toLocaleString()}
-            icon={ShieldCheck}
-            iconColor="var(--color-primary)"
-            iconBg="var(--color-primary-subtle)"
-            badgeText="Active"
-            badgeType="default"
-            subtitle="Automated rule surveillance"
-          />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+          <button type="button" onClick={() => filterByCategory('HIGH')} style={cardButtonStyle} aria-label="Show high risk students">
+            <StatCard title="High" value={overview.counts.HIGH} icon={AlertTriangle} iconColor="var(--color-risk-high)" iconBg="var(--color-risk-high-subtle)" subtitle={`Score ${RISK_CATEGORY_BANDS.high}+ · prompt review`} />
+          </button>
+          <button type="button" onClick={() => filterByCategory('MEDIUM')} style={cardButtonStyle} aria-label="Show medium risk students">
+            <StatCard title="Medium" value={overview.counts.MEDIUM} icon={Clock} iconColor="var(--color-risk-medium)" iconBg="var(--color-risk-medium-subtle)" subtitle={`Score ${RISK_CATEGORY_BANDS.medium}–${RISK_CATEGORY_BANDS.high - 1} · monitor`} />
+          </button>
+          <button type="button" onClick={() => filterByCategory('LOW')} style={cardButtonStyle} aria-label="Show low risk students">
+            <StatCard title="Low" value={overview.counts.LOW} icon={CheckCircle2} iconColor="var(--color-risk-low)" iconBg="var(--color-risk-low-subtle)" subtitle={`Score 0–${RISK_CATEGORY_BANDS.medium - 1}`} />
+          </button>
+          <button type="button" onClick={() => setFilters({ ...DEFAULT_FILTERS, dataStatus: 'PROVISIONAL' })} style={cardButtonStyle} aria-label="Show students with incomplete data">
+            <StatCard title="Incomplete Data" value={overview.provisional + overview.counts.INSUFFICIENT_DATA} icon={HelpCircle} iconColor="#92400e" iconBg="var(--color-accent-subtle)" subtitle={`${overview.provisional} provisional · ${overview.counts.INSUFFICIENT_DATA} no score`} />
+          </button>
+          <button type="button" onClick={() => setFilters({ ...DEFAULT_FILTERS, review: 'needs' })} style={cardButtonStyle} aria-label="Show flags awaiting review">
+            <StatCard title="Awaiting Review" value={overview.awaitingReview} icon={ClipboardCheck} iconColor="#0369a1" iconBg="#e0f2fe" subtitle="medium & high flags" />
+          </button>
         </div>
       )}
 
-      {/* Risk Tier Navigation Tabs & Filter Toolbar */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: '24px' }}>
-        {/* Tier Tabs */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            borderBottom: '1px solid var(--color-border-subtle)',
-            paddingBottom: '14px',
-            marginBottom: '16px',
-            overflowX: 'auto',
-          }}
+      {/* Rules explainer */}
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <button
+          type="button"
+          onClick={() => setRulesOpen((o) => !o)}
+          aria-expanded={rulesOpen}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
         >
-          <button
-            onClick={() => setSelectedTier('all')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: selectedTier === 'all' ? 'var(--color-primary)' : 'var(--color-bg-muted)',
-              color: selectedTier === 'all' ? '#ffffff' : 'var(--color-text-secondary)',
-            }}
-          >
-            All Cohorts ({overview ? overview.totalMonitored : 0})
-          </button>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '14px', color: 'var(--color-text-primary)' }}>
+            <BookOpen size={17} color="var(--color-primary)" /> How the score works
+          </span>
+          {rulesOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+        {rulesOpen && (
+          <div className="card-body" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+            <div className="grid-2">
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Rule</th><th style={{ textAlign: 'right' }}>Points</th></tr>
+                  </thead>
+                  <tbody>
+                    {RISK_RULES.map((rule) => (
+                      <tr key={rule.code}>
+                        <td style={{ fontSize: '12px' }}>{rule.description}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>+{rule.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <ul style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6, paddingLeft: '18px' }}>
+                <li>Only one band per indicator counts (e.g. attendance gives +30 <em>or</em> +15). The total is capped at 100.</li>
+                <li><strong>Low</strong> 0–24, <strong>Medium</strong> 25–49, <strong>High</strong> 50+.</li>
+                <li>Academic decline compares the latest two results in the <em>same subject</em>, as percentages.</li>
+                <li>Fewer than {MIN_ELIGIBLE_SCHOOL_DAYS} school days or no marks → the score is <strong>provisional</strong>. No usable data → <strong>insufficient data</strong>, never “low”.</li>
+                <li>Scores update automatically when attendance, marks or support flags change.</li>
+                <li>This is a prototype heuristic to prioritise human review. It is not validated, not a prediction, and must never be used to punish or exclude a student. Caste, religion, gender and disability are never used.</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
 
-          <button
-            onClick={() => setSelectedTier('high')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: selectedTier === 'high' ? 'var(--color-risk-high)' : 'var(--color-risk-high-subtle)',
-              color: selectedTier === 'high' ? '#ffffff' : 'var(--color-risk-high)',
-            }}
-          >
-            High Risk ({overview ? overview.highRiskCount : 0})
-          </button>
-
-          <button
-            onClick={() => setSelectedTier('medium')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: selectedTier === 'medium' ? 'var(--color-risk-medium)' : 'var(--color-risk-medium-subtle)',
-              color: selectedTier === 'medium' ? '#ffffff' : 'var(--color-risk-medium)',
-            }}
-          >
-            Medium Risk ({overview ? overview.mediumRiskCount : 0})
-          </button>
-
-          <button
-            onClick={() => setSelectedTier('low')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: selectedTier === 'low' ? 'var(--color-risk-low)' : 'var(--color-risk-low-subtle)',
-              color: selectedTier === 'low' ? '#ffffff' : 'var(--color-risk-low)',
-            }}
-          >
-            Low Risk ({overview ? overview.lowRiskCount : 0})
-          </button>
+      {/* Filters */}
+      <div className="card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search by name or student code..." style={{ maxWidth: '280px' }} />
+          <select className="filter-select" value={filters.category} onChange={(e) => setFilter('category', e.target.value)} aria-label="Filter by risk category">
+            <option value="">All categories</option>
+            {Object.values(RISK_CATEGORY).map((c) => <option key={c} value={c}>{RISK_CATEGORY_LABELS[c]}</option>)}
+          </select>
+          <select className="filter-select" value={filters.dataStatus} onChange={(e) => setFilter('dataStatus', e.target.value)} aria-label="Filter by data completeness">
+            <option value="">Any data status</option>
+            {Object.entries(DATA_STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <select className="filter-select" value={filters.review} onChange={(e) => setFilter('review', e.target.value)} aria-label="Filter by review status">
+            <option value="">Any review status</option>
+            {RISK_REVIEW_FILTERS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <select className="filter-select" value={filters.grade} onChange={(e) => setFilter('grade', e.target.value)} aria-label="Filter by grade">
+            <option value="">All grades</option>
+            {GRADES.map((g) => <option key={g} value={g}>Grade {g}</option>)}
+          </select>
+          <select className="filter-select" value={filters.section} onChange={(e) => setFilter('section', e.target.value)} aria-label="Filter by section">
+            <option value="">All sections</option>
+            {SECTIONS.map((s) => <option key={s} value={s}>Section {s}</option>)}
+          </select>
+          {isFiltered && <Button variant="secondary" size="sm" icon={RotateCcw} onClick={reset}>Reset</Button>}
         </div>
-
-        {/* Search & Department Filters */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
-            <SearchBar
-              value={search}
-              onChange={setSearch}
-              placeholder="Search by student name, ID, or reason keyword..."
-              style={{ maxWidth: '340px' }}
-            />
-
-            <select
-              className="filter-select"
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              aria-label="Filter by department"
-            >
-              <option value="">All Departments</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Electronics">Electronics</option>
-              <option value="Information Tech">Information Tech</option>
-              <option value="Mechanical">Mechanical</option>
-              <option value="Civil Engineering">Civil Engineering</option>
-            </select>
-
-            {isFiltered && (
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={RotateCcw}
-                onClick={handleResetFilters}
-                title="Reset all filters"
-              >
-                Reset
-              </Button>
-            )}
-          </div>
-
-          <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-            Showing {students.length} student record{students.length === 1 ? '' : 's'}
-          </div>
+        <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+          {assessments.length} student{assessments.length === 1 ? '' : 's'}
         </div>
       </div>
 
-      {/* Main Risk Categorization Table & States */}
-      {loading && <LoadingState message="Evaluating cohort indicators against institutional retention rules..." />}
-
-      {!loading && error && (
-        <ErrorState
-          title="Risk Evaluation Service Error"
-          message={error}
-          onRetry={loadData}
-        />
+      {notice && (
+        <div className="alert alert-success" role="status" style={{ marginBottom: '16px' }}>
+          <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+          <span>{notice}</span>
+        </div>
       )}
 
-      {!loading && !error && students.length === 0 && (
+      {loading && assessments.length === 0 && <LoadingState message="Loading risk indicators..." />}
+      {!loading && error && <ErrorState title="Unable to Load Risk Indicators" message={error} onRetry={load} />}
+      {!loading && !error && assessments.length === 0 && (
         <EmptyState
-          title="No Students in Selected Risk Tier"
-          message="No student profiles matched your active risk tier or search filters. Try selecting another tier or clearing your search."
-          actionLabel="Clear Filters"
-          onAction={handleResetFilters}
+          icon={ShieldAlert}
+          title="No Students Match"
+          message={isFiltered ? 'No students match these filters.' : 'There are no active students to assess yet.'}
+          actionLabel={isFiltered ? 'Reset Filters' : undefined}
+          onAction={isFiltered ? reset : undefined}
         />
       )}
 
-      {!loading && !error && students.length > 0 && (
-        <div className="card">
+      {!error && assessments.length > 0 && (
+        <div className="card" style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Student Info</th>
-                  <th>Risk Tier</th>
-                  <th>Primary Trigger</th>
-                  <th>Attendance & GPA</th>
-                  <th>Explainable Rationale ("The Why")</th>
-                  <th>Recommended Intervention</th>
+                  <th>Student</th>
+                  <th>Indicator</th>
+                  <th>Main reasons</th>
+                  <th>Review</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {students.map((student) => (
-                  <tr key={student.id}>
-                    {/* Student Info */}
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{student.name}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                        {student.id} • {student.rollNo}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                        {student.department} (Sem {student.semester})
-                      </div>
-                    </td>
-
-                    {/* Risk Tier Badge */}
-                    <td>
-                      <Badge type="risk" value={student.riskLevel} />
-                    </td>
-
-                    {/* Primary Trigger */}
-                    <td>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                        {student.primaryTrigger}
-                      </span>
-                    </td>
-
-                    {/* Metrics */}
-                    <td>
-                      <div style={{ fontSize: '12px' }}>
-                        <strong>Attendance:</strong>{' '}
-                        <span
-                          style={{
-                            fontWeight: 700,
-                            color:
-                              student.attendanceRate < 65
-                                ? 'var(--color-risk-high)'
-                                : student.attendanceRate < 75
-                                ? 'var(--color-risk-medium)'
-                                : 'var(--color-risk-low)',
-                          }}
-                        >
-                          {student.attendanceRate}%
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                        GPA: <strong>{student.gpa}</strong> • Failed Tests: <strong>{student.failedAssessmentsCount}</strong>
-                      </div>
-                    </td>
-
-                    {/* Understandable Rationale */}
-                    <td style={{ maxWidth: '280px', fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.45 }}>
-                      {student.explainableReason}
-                    </td>
-
-                    {/* Recommended Intervention */}
-                    <td style={{ maxWidth: '200px', fontSize: '12px', color: 'var(--color-text-primary)' }}>
-                      <div style={{ padding: '6px 10px', backgroundColor: 'var(--color-bg-muted)', borderRadius: 'var(--radius-sm)' }}>
-                        {student.recommendedAction}
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={RefreshCw}
-                          onClick={() => handleRecalculate(student.id, student.name)}
-                          disabled={recalculatingId === student.id}
-                          title="Recalculate risk against latest attendance and marks"
-                        >
-                          {recalculatingId === student.id ? 'Recalculating...' : 'Recalculate'}
-                        </Button>
-
-                        <Link to={`/students/${student.id}`}>
-                          <Button variant="outline" size="sm" icon={ExternalLink} title="View student profile">
-                            Profile
-                          </Button>
-                        </Link>
-
-                        <Link to={`/interventions?studentId=${student.id}&name=${encodeURIComponent(student.name)}`}>
-                          <Button variant="primary" size="sm" title="Schedule intervention">
-                            Intervene
-                          </Button>
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {assessments.map((a) => {
+                  const isOpen = expanded === a.studentId;
+                  return (
+                    <React.Fragment key={a.studentId}>
+                      <tr>
+                        <td>
+                          <Link to={`/students/${a.studentId}`} style={{ fontWeight: 600, color: 'var(--color-primary-dark)', textDecoration: 'none' }}>
+                            {a.student.fullName}
+                          </Link>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                            {a.student.studentCode} · {formatClass(a.student.grade, a.student.section)}
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                            <Badge type="risk" value={a.category} />
+                            <RiskScoreBar score={a.score} category={a.category} />
+                            {a.dataStatus === 'PROVISIONAL' && <Badge type="dataStatus" value={a.dataStatus} />}
+                          </div>
+                        </td>
+                        <td style={{ maxWidth: '300px' }}>
+                          {a.reasons.length === 0 ? (
+                            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                              {a.category === 'INSUFFICIENT_DATA' ? 'Not enough data yet' : 'No rules triggered'}
+                            </span>
+                          ) : (
+                            <ul style={{ listStyle: 'none', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              {a.reasons.slice(0, 2).map((r) => (
+                                <li key={r.code}>
+                                  <strong>+{r.points}</strong> {r.label}
+                                </li>
+                              ))}
+                              {a.reasons.length > 2 && (
+                                <li style={{ color: 'var(--color-text-secondary)' }}>+{a.reasons.length - 2} more</li>
+                              )}
+                            </ul>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setExpanded(isOpen ? null : a.studentId)}
+                            aria-expanded={isOpen}
+                            style={{ marginTop: '4px', background: 'none', border: 'none', padding: 0, color: 'var(--color-primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                          >
+                            {isOpen ? 'Hide details' : 'Why?'}
+                          </button>
+                        </td>
+                        <td>
+                          <ReviewStatus assessment={a} compact />
+                          {a.category === 'LOW' && <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>Not needed</span>}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {can(PERMISSIONS.RISK_REVIEW) && a.needsReview && (
+                              <Button variant="primary" size="sm" icon={ClipboardCheck} onClick={() => setReviewing(a)}>
+                                Review
+                              </Button>
+                            )}
+                            {can(PERMISSIONS.INTERVENTION_CREATE) && (a.category === 'HIGH' || a.category === 'MEDIUM') && (
+                              <Link
+                                to={`/interventions?studentId=${a.studentId}&name=${encodeURIComponent(a.student.fullName)}`}
+                                className="btn btn-outline btn-sm"
+                              >
+                                <PlusCircle size={14} aria-hidden="true" /> Intervention
+                              </Link>
+                            )}
+                            {can(PERMISSIONS.RISK_RECALCULATE) && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                icon={RefreshCw}
+                                onClick={() => handleRecalculate(a.studentId, a.student.fullName)}
+                                disabled={recalculating !== null}
+                                aria-label={`Recalculate risk for ${a.student.fullName}`}
+                              >
+                                {recalculating === a.studentId ? '...' : ''}
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr>
+                          <td colSpan={5} style={{ backgroundColor: '#fcfcfa' }}>
+                            <div style={{ maxWidth: '640px', padding: '4px 0' }}>
+                              <RiskExplanation assessment={a} />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          {overview?.lastCalculatedAt && (
+            <div style={{ padding: '10px 20px', fontSize: '11px', color: 'var(--color-text-secondary)', borderTop: '1px solid var(--color-border-subtle)' }}>
+              Last calculated {formatDate(overview.lastCalculatedAt)}
+            </div>
+          )}
         </div>
+      )}
+
+      {reviewing && (
+        <ReviewRiskModal
+          assessment={reviewing}
+          studentName={reviewing.student.fullName}
+          onClose={() => setReviewing(null)}
+          onReviewed={() => {
+            setNotice(`Marked ${reviewing.student.fullName}'s flag as reviewed.`);
+            setReviewing(null);
+            load();
+          }}
+        />
       )}
     </div>
   );
 }
+
+const cardButtonStyle = {
+  padding: 0,
+  border: 'none',
+  background: 'none',
+  textAlign: 'left',
+  cursor: 'pointer',
+  font: 'inherit',
+  color: 'inherit',
+  display: 'block',
+  width: '100%',
+};
