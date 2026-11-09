@@ -19,16 +19,43 @@ const optionalString = z
   .optional()
   .transform((v) => (v ? v : undefined));
 
+/**
+ * Forgive the usual copy-paste slips when a value is pasted into a hosting
+ * dashboard: surrounding quotes, or the whole `NAME=value` line.
+ */
+export function cleanSecretValue(name, value) {
+  if (typeof value !== 'string') return value;
+  let v = value.trim();
+  if (v.startsWith(`${name}=`)) v = v.slice(name.length + 1).trim();
+  const quoted = /^(["'])(.*)\1$/s.exec(v);
+  if (quoted) v = quoted[2].trim();
+  return v;
+}
+
+/** How a bad value begins, up to the first ":" — never far enough to include a password. */
+export function describeStart(value) {
+  if (!value) return 'empty';
+  const prefix = value.split(':')[0].slice(0, 15);
+  return `starts with "${prefix}${value.length > prefix.length ? '…' : ''}"`;
+}
+
+const databaseUrl = optionalString.superRefine((v, ctx) => {
+  if (v && !/^postgres(ql)?:\/\//.test(v)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `must be a postgresql:// connection string (the value ${describeStart(v)}). Paste only the URL — no quotes, no "DATABASE_URL=", no "psql".`,
+    });
+  }
+});
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(5000),
-  DATABASE_URL: optionalString.refine((v) => !v || /^postgres(ql)?:\/\//.test(v), {
-    message: 'must be a postgresql:// connection string',
-  }),
+  DATABASE_URL: databaseUrl,
   DB_POOL_MAX: z.coerce.number().int().min(1).max(50).default(5),
   // Signs login tokens. Use a long random value (e.g. `openssl rand -base64 48`).
   JWT_SECRET: optionalString.refine((v) => !v || v.length >= 32, {
-    message: 'must be at least 32 characters',
+    message: 'must be at least 32 characters (generate one with `openssl rand -base64 48`)',
   }),
   JWT_EXPIRES_IN: z
     .string()
@@ -47,7 +74,7 @@ const schema = z.object({
       }
     }, 'must be an IANA timezone such as Asia/Kolkata'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
-  // Failed-or-not login attempts allowed per IP and email in 15 minutes.
+  // Failed sign-in attempts allowed per IP and email in 15 minutes.
   LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
   CORS_ORIGINS: optionalString.transform((v) =>
     v ? v.split(',').map((o) => o.trim()).filter(Boolean) : []
@@ -55,7 +82,10 @@ const schema = z.object({
   VERCEL: optionalString,
 });
 
-const parsed = schema.safeParse(process.env);
+const input = { ...process.env };
+for (const name of ['DATABASE_URL', 'JWT_SECRET']) input[name] = cleanSecretValue(name, input[name]);
+
+const parsed = schema.safeParse(input);
 
 if (!parsed.success) {
   const problems = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
