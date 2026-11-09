@@ -37,11 +37,12 @@ Requirements: Node.js 20+ and npm 10+.
 ```bash
 npm install                      # installs all workspaces and generates the Prisma client
 cp client/.env.example client/.env.local
-npm run dev:web                  # Udaan web app on http://localhost:3000
 ```
 
-With `VITE_USE_MOCKS=true` (the default in `.env.example`) the web app runs
-entirely on local mock data, so the API is not required.
+The web app talks to the Udaan API, so set up the database and API below, then run
+`npm run dev`. For frontend-only work without a database, set `VITE_USE_MOCKS=true` in
+`client/.env.local`: the web app then runs on built-in demo data (changes are kept in
+memory until the page is reloaded).
 
 ### Running the API
 
@@ -214,7 +215,8 @@ Created by `npm run db:seed` (and built into mock mode). All use the password
 | -------------------- | ------- | -------------------------------------------------------------- |
 | `VITE_API_BASE_URL`  | client  | API base path (default `/api/v1`)                              |
 | `VITE_DEV_API_PROXY` | client  | Local API URL the dev server proxies `/api` to                 |
-| `VITE_USE_MOCKS`     | client  | `true` to use local mock data instead of the API               |
+| `VITE_USE_MOCKS`     | client  | `true` to use built-in demo data instead of the API (default `false`) |
+| `VITE_SHOW_DEMO_ACCOUNTS` | client | `true` to list the demo accounts on the login page (always on in mock mode) |
 | `DATABASE_URL`       | server  | PostgreSQL connection used by the API (Neon: pooled string)    |
 | `DATABASE_URL_UNPOOLED` | server | Direct connection used only for migrations (Neon)            |
 | `PORT`               | server  | Local API port (default `5000`)                                |
@@ -228,14 +230,57 @@ Created by `npm run db:seed` (and built into mock mode). All use the password
 
 ## Deployment (Vercel)
 
-1. Import this repository into Vercel (leave **Root Directory** as the repo root).
-2. Vercel reads `vercel.json`: it runs `npm run build`, serves `client/dist`, and
-   deploys `api/index.js` (the Express app) as a serverless function for `/api/*`.
-3. Add `DATABASE_URL` (Neon pooled string) and `JWT_SECRET` (a new random value, not
-   your local one) in **Project → Settings → Environment Variables**, and run `npm run db:deploy` from your machine to apply migrations.
-   The API registers its connection pool with `attachDatabasePool` from
-   `@vercel/functions`, so idle connections are closed cleanly between requests.
-   The full production checklist is added in a later step.
+The web app and the API deploy together as one Vercel project on one domain.
+`vercel.json` runs `npm run build` (Prisma client + web app), serves `client/dist` with an
+`index.html` fallback, and deploys `api/index.js` (the Express app) as a serverless
+function that handles every `/api/*` request.
+
+1. **Database first.** Migrations are applied from your machine, never during the build:
+   `npm run db:deploy`, then (for the demo) `npm run db:seed`.
+2. **Import the repository** in Vercel → *Add New… → Project*. Keep **Root Directory**
+   as the repository root and leave the framework preset as *Other*; `vercel.json`
+   supplies the commands.
+3. **Environment variables** (*Project → Settings → Environment Variables*, for
+   Production and Preview):
+
+   | Variable | Value |
+   | --- | --- |
+   | `DATABASE_URL` | Neon **pooled** connection string (host contains `-pooler`) |
+   | `JWT_SECRET` | a **new** random value: `openssl rand -base64 48` — not your local one |
+   | `SCHOOL_TIMEZONE` | optional, default `Asia/Kolkata` |
+   | `VITE_SHOW_DEMO_ACCOUNTS` | optional, `true` only for a public demo |
+
+   `DATABASE_URL_UNPOOLED` is not needed on Vercel (only migrations use it).
+4. **Deploy**, then check `https://<your-app>.vercel.app/api/v1/health/db`: it should
+   return `"database":"ok"` and the latest migration name.
+
+Notes:
+- The API uses `node-postgres` with a small pool registered through
+  `attachDatabasePool` (`@vercel/functions`), so idle connections are released when an
+  instance goes idle. Function time limit: 30 s (`vercel.json`).
+- After changing `schema.prisma`, create the migration locally (`npm run db:migrate`),
+  commit it, and run `npm run db:deploy` against Neon before deploying the new code.
+- The login rate limit is kept in memory, so each serverless instance counts on its own.
+
+## Demo walkthrough
+
+A five-minute tour of the seeded demo school (password `Udaan@123` for every account):
+
+1. **Admin (`admin@udaan.demo`) — Dashboard.** 9 active students, attendance with its
+   denominator explained, 3 high-risk flags, and one overdue follow-up (Sneha).
+2. **Risk Monitoring.** Each flag lists its reasons and points; open *How the score
+   works* for the rule table. Review Aarav's flag with a note — *Awaiting review* drops.
+3. **Interventions.** Open Sneha's overdue case: the risk reasons from when it was
+   opened, the action plan and its history. Complete it with an outcome — her score
+   falls from 50 to 40 because the overdue rule no longer applies.
+4. **Academics.** Create an assessment for Grade 8 · A and enter marks; a score above
+   the maximum is rejected, and saving updates the students' risk straight away.
+5. **Attendance.** Take the register for a class; corrections show who recorded each
+   entry.
+6. **Teacher (`teacher@udaan.demo`).** Neha sees only her 4 assigned students, her own
+   dashboard and follow-ups, and no Staff page.
+7. **Staff (admin).** Add a staff account with a temporary password, or deactivate one —
+   that person is signed out on their next request.
 
 ## Privacy note
 
