@@ -6,6 +6,30 @@ Udaan helps school staff notice early warning signs (attendance, academic
 decline, reported barriers), understand **why** a student was flagged through a
 transparent rule-based score, and track human-led interventions to completion.
 
+**Live demo:** https://student-dropout-prevention-system.vercel.app/login — sign in with
+any [demo account](#demo-accounts) (password `Udaan@123`). The demo database is shared,
+so other visitors may have changed its records.
+
+## Features
+
+- **Students** — searchable register with enrolment status, guardian contact, support
+  notes and an assigned class teacher; students are never deleted.
+- **Attendance** — daily class register, corrections with who-recorded-what, an
+  audited delete, and a school overview with class rates.
+- **Academics** — assessments per class and marks sheets checked against the maximum;
+  same-subject drops are highlighted.
+- **Risk indicator** — a transparent 0–100 rule-based score with its reasons, data
+  completeness, and a human review step.
+- **Interventions** — owned, time-bound support actions with outcomes, overdue tracking
+  and full history.
+- **Dashboard** — live school-wide (or a teacher's own) figures and follow-ups.
+- **Staff and roles** — school admin, principal and teacher, with teachers limited to
+  their assigned students; every school's data is kept separate.
+
+Built with React 18 + Vite, Express 5, Prisma 7 and PostgreSQL (Neon), deployed as one
+Vercel project. Business rules live once in `shared/` and are used by both the web app
+and the API.
+
 ## Repository layout
 
 ```
@@ -15,6 +39,7 @@ transparent rule-based score, and track human-led interventions to completion.
 ├── shared/          Business rules shared by client and server (attendance, risk, interventions)
 ├── api/             Vercel serverless entry that exposes the Udaan API
 ├── vercel.json      Single Vercel project: static frontend + /api function
+├── neon.ts          Neon branch configuration (Postgres only)
 └── package.json     npm workspaces root
 ```
 
@@ -251,8 +276,11 @@ function that handles every `/api/*` request.
    | `VITE_SHOW_DEMO_ACCOUNTS` | optional, `true` only for a public demo |
 
    `DATABASE_URL_UNPOOLED` is not needed on Vercel (only migrations use it).
+   Paste only the value itself — no quotes, no `NAME=` prefix, no `psql` command around
+   the connection string. Variable changes take effect on the next deployment.
 4. **Deploy**, then check `https://<your-app>.vercel.app/api/v1/health/db`: it should
-   return `"database":"ok"` and the latest migration name.
+   return `"database":"ok"` and the latest migration name. For this project:
+   https://student-dropout-prevention-system.vercel.app/api/v1/health/db
 
 Notes:
 - The API uses `node-postgres` with a small pool registered through
@@ -261,10 +289,15 @@ Notes:
 - After changing `schema.prisma`, create the migration locally (`npm run db:migrate`),
   commit it, and run `npm run db:deploy` against Neon before deploying the new code.
 - The login rate limit is kept in memory, so each serverless instance counts on its own.
+- If the API fails to start, the deployment's **Logs** tab shows the reason (for example,
+  which environment variable is invalid). Vercel's "server error" page on sign-in usually
+  means a missing or malformed `DATABASE_URL` or `JWT_SECRET`.
 
 ## Demo walkthrough
 
-A five-minute tour of the seeded demo school (password `Udaan@123` for every account):
+A five-minute tour of the seeded demo school — locally or on the
+[live demo](https://student-dropout-prevention-system.vercel.app/login) (password
+`Udaan@123` for every account):
 
 1. **Admin (`admin@udaan.demo`) — Dashboard.** 9 active students, attendance with its
    denominator explained, 3 high-risk flags, and one overdue follow-up (Sneha).
