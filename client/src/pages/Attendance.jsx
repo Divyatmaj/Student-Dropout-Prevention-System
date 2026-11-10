@@ -79,7 +79,7 @@ export default function Attendance() {
             conversation.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'end', flexWrap: 'wrap' }}>
+        <div className="attendance-date-range">
           <label style={{ display: 'grid', gap: '4px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
             From
             <input className="form-input" type="date" value={periodFrom} max={periodTo || undefined}

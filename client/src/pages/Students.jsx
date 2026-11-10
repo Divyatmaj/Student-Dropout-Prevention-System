@@ -172,7 +172,7 @@ export default function Students() {
 
       {/* Search & filters */}
       <div
-        className="card"
+        className="card mobile-filter-card"
         style={{
           padding: '16px 20px',
           marginBottom: '24px',
@@ -183,7 +183,7 @@ export default function Students() {
           justifyContent: 'space-between',
         }}
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
+        <div className="mobile-filter-grid">
           <SearchBar
             value={search}
             onChange={setSearch}
@@ -278,7 +278,7 @@ export default function Students() {
       {!loading && !error && students.length > 0 && (
         <div className="card">
           <div className="table-responsive">
-            <table className="data-table">
+            <table className="data-table mobile-students-table">
               <thead>
                 <tr>
                   <th>Student</th>

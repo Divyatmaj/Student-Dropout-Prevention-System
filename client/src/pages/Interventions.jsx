@@ -126,8 +126,8 @@ export default function Interventions() {
         </div>
       )}
 
-      <div className="card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
+      <div className="card mobile-filter-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+        <div className="mobile-filter-grid">
           <SearchBar value={search} onChange={setSearch} placeholder="Search student, code or owner..." style={{ maxWidth: '260px' }} />
           <select className="filter-select" value={filters.status} onChange={(e) => setFilter('status', e.target.value)} aria-label="Filter by status">
             <option value="active">Open &amp; in progress</option>
@@ -196,7 +196,7 @@ export default function Interventions() {
       {!error && interventions.length > 0 && (
         <div className="card" style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           <div className="table-responsive">
-            <table className="data-table">
+            <table className="data-table mobile-interventions-table">
               <thead>
                 <tr>
                   <th>Student</th>

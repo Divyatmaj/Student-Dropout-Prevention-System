@@ -334,6 +334,8 @@
 .table-responsive {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .data-table {
@@ -461,6 +463,15 @@
 
 .filter-select:focus {
   border-color: var(--color-primary);
+}
+
+.mobile-filter-grid {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }
 
 /* Modal Dialog */
@@ -609,6 +620,13 @@ textarea.form-input {
   gap: 12px;
 }
 
+.attendance-date-range {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
 .alert {
   padding: 10px 14px;
   border-radius: var(--radius-sm);
@@ -661,6 +679,78 @@ textarea.form-input {
   .modal-header,
   .modal-footer {
     padding: 12px 16px;
+  }
+
+  .mobile-filter-card {
+    align-items: stretch !important;
+    padding: 14px !important;
+  }
+
+  .mobile-filter-card > .mobile-filter-grid {
+    display: grid !important;
+    flex: none !important;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .mobile-filter-grid > .search-input-wrapper {
+    grid-column: 1 / -1;
+    min-width: 0;
+    max-width: none !important;
+  }
+
+  .mobile-filter-grid > .filter-select,
+  .mobile-filter-grid > label,
+  .mobile-filter-grid > label > .filter-select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .mobile-filter-card > div:last-child {
+    width: 100%;
+  }
+
+  .mobile-students-table {
+    min-width: 800px;
+  }
+
+  .mobile-attendance-table {
+    min-width: 720px;
+  }
+
+  .mobile-register-table {
+    min-width: 760px;
+  }
+
+  .mobile-interventions-table {
+    min-width: 640px;
+  }
+
+  .attendance-date-range {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 10px;
+  }
+
+  .attendance-date-range label,
+  .attendance-date-range input {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .status-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .status-toggle button {
+    min-width: 0;
+    padding: 8px 6px;
   }
 }
 

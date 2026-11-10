@@ -234,7 +234,7 @@ export default function ClassRegister({ onSaved }) {
           </div>
 
           <div className="table-responsive">
-            <table className="data-table">
+            <table className="data-table mobile-register-table">
               <thead>
                 <tr>
                   <th>Student</th>

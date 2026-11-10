@@ -150,10 +150,10 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
   return (
     <div>
       <div
-        className="card"
+        className="card mobile-filter-card"
         style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', flex: 1 }}>
+        <div className="mobile-filter-grid">
           <SearchBar value={search} onChange={setSearch} placeholder="Search by name or student code..." style={{ maxWidth: '280px' }} />
           <input
             type="date"
@@ -217,7 +217,7 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
       {!loading && !error && records.length > 0 && (
         <div className="card">
           <div className="table-responsive">
-            <table className="data-table">
+            <table className="data-table mobile-attendance-table">
               <thead>
                 <tr>
                   <th>Date</th>
