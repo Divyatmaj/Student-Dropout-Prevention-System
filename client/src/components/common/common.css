@@ -627,6 +627,48 @@ textarea.form-input {
   flex-wrap: wrap;
 }
 
+.parent-meeting-card {
+  margin-bottom: 24px;
+}
+
+.parent-meeting-list {
+  display: grid;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.parent-meeting-entry {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
+.parent-meeting-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.parent-meeting-field p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.meeting-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .alert {
   padding: 10px 14px;
   border-radius: var(--radius-sm);
@@ -751,6 +793,14 @@ textarea.form-input {
   .status-toggle button {
     min-width: 0;
     padding: 8px 6px;
+  }
+
+  .parent-meeting-list {
+    padding: 12px;
+  }
+
+  .parent-meeting-entry {
+    padding: 12px;
   }
 }
 

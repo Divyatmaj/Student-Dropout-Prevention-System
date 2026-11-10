@@ -26,6 +26,7 @@ import ErrorState from '../components/common/ErrorState.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
 import StudentFormModal from '../components/students/StudentFormModal.jsx';
 import StudentStatusModal from '../components/students/StudentStatusModal.jsx';
+import ParentMeetingLog from '../components/students/ParentMeetingLog.jsx';
 import RiskExplanation, { ReviewStatus } from '../components/risk/RiskExplanation.jsx';
 import ReviewRiskModal from '../components/risk/ReviewRiskModal.jsx';
 import { recalculateStudentRisk } from '../services/riskService.js';
@@ -272,6 +273,8 @@ export default function StudentDetail() {
           </span>
         </div>
       )}
+
+      <ParentMeetingLog studentId={student.id} />
 
       {/* Risk indicator */}
       {isActive && risk && (

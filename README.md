@@ -22,6 +22,8 @@ so other visitors may have changed its records.
   completeness, and a human review step.
 - **Interventions** — owned, time-bound support actions with outcomes, overdue tracking
   and full history.
+- **Family meetings** — date-stamped parent or guardian meeting notes, attendees and agreed
+  follow-up actions on the student profile.
 - **Dashboard** — live school-wide (or a teacher's own) figures and follow-ups.
 - **Staff and roles** — school admin, principal and teacher, with teachers limited to
   their assigned students; every school's data is kept separate.
@@ -158,6 +160,7 @@ empty it first), migrated with `npm run db:deploy`:
 | Risk | `GET /risk`, `GET /risk/overview`, `GET /risk/:studentId`, `POST /risk/recalculate/:studentId`, `POST /risk/recalculate` (admin, principal), `POST /risk/:studentId/review` |
 | Interventions | `GET/POST /interventions`, `GET /interventions/overview`, `GET/PATCH /interventions/:id`, `PATCH /interventions/:id/status` |
 | Dashboard | `GET /dashboard/overview` (admin, principal), `GET /dashboard/teacher` (teacher), `GET /dashboard/attention` |
+| Family meetings | `GET/POST /students/:id/parent-meetings` |
 
 - One attendance record per student per day, and one mark per student per assessment
   (`409` on duplicates). The bulk endpoints save a whole register or marks sheet at once:
@@ -318,4 +321,5 @@ A five-minute tour of the seeded demo school — locally or on the
 ## Privacy note
 
 This is a prototype. Use only fictional demo data. Do not load real student or
-guardian information without institutional authorization and a privacy review.
+guardian information or family meeting notes without institutional authorization
+and a privacy review. Meeting notes are visible to staff authorized to view that student.

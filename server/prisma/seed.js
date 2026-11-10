@@ -25,6 +25,7 @@ import { mockStudentsList } from '../../client/src/data/mockStudentsData.js';
 import { mockAttendanceRecords } from '../../client/src/data/mockAttendanceData.js';
 import { mockAssessments, mockMarks } from '../../client/src/data/mockAcademicsData.js';
 import { mockInterventionsList } from '../../client/src/data/mockInterventionsData.js';
+import { mockParentMeetingLogs } from '../../client/src/data/mockParentMeetingLogs.js';
 
 /** The example review shown in mock mode (Vikram's flag, reviewed by the principal). */
 const DEMO_REVIEW = {
@@ -78,9 +79,38 @@ async function main() {
 
   const studentIds = await seedRecords(prisma, school, userIds);
   await seedInterventions(prisma, school, userIds, studentIds);
+  await seedParentMeetings(prisma, school, userIds, studentIds);
   await recalculateMany([...studentIds.values()]);
   console.log(`Risk indicators calculated for ${studentIds.size} students.`);
   await seedReview(prisma, school, userIds);
+}
+
+async function seedParentMeetings(prisma, school, userIds, studentIds) {
+  let created = 0;
+  for (const meeting of mockParentMeetingLogs) {
+    const studentId = studentIds.get(meeting.studentId);
+    const meetingDate = toDbDate(meeting.meetingDate);
+    const exists = await prisma.parentMeetingLog.findFirst({
+      where: { schoolId: school.id, studentId, meetingDate, attendees: meeting.attendees },
+      select: { id: true },
+    });
+    if (exists) continue;
+    await prisma.parentMeetingLog.create({
+      data: {
+        schoolId: school.id,
+        studentId,
+        createdById: userIds.get(meeting.createdById) ?? userIds.get('USR-001'),
+        meetingDate,
+        attendees: meeting.attendees,
+        notes: meeting.notes,
+        followUpActions: meeting.followUpActions || null,
+        followUpDate: toDbDate(meeting.followUpDate),
+        createdAt: new Date(meeting.createdAt),
+      },
+    });
+    created += 1;
+  }
+  console.log(`Parent meeting logs added: ${created} of ${mockParentMeetingLogs.length}`);
 }
 
 /** Interventions with their history, matched on student + creation time. */

@@ -105,6 +105,7 @@ model School {
   marks         StudentMark[]
   risk          RiskAssessment[]
   interventions Intervention[]
+  parentMeetings ParentMeetingLog[]
   auditLogs     AuditLog[]
 
   @@map("schools")
@@ -131,6 +132,7 @@ model User {
   interventionsAssigned Intervention[]      @relation("InterventionOwner")
   interventionsCreated  Intervention[]      @relation("InterventionCreator")
   interventionEvents    InterventionEvent[]
+  parentMeetingsCreated ParentMeetingLog[]
   auditLogs             AuditLog[]
 
   @@index([schoolId, role])
@@ -167,6 +169,7 @@ model Student {
   marks           StudentMark[]
   riskAssessment  RiskAssessment?
   interventions   Intervention[]
+  parentMeetings  ParentMeetingLog[]
 
   @@unique([schoolId, studentCode])
   @@index([schoolId, status])
@@ -321,6 +324,27 @@ model InterventionEvent {
 
   @@index([interventionId, createdAt])
   @@map("intervention_events")
+}
+
+/// Sensitive, append-only notes about meetings with a student's family.
+model ParentMeetingLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  schoolId         String   @db.Uuid
+  studentId        String   @db.Uuid
+  createdById      String   @db.Uuid
+  meetingDate      DateTime @db.Date
+  attendees        String
+  notes            String
+  followUpActions  String?
+  followUpDate     DateTime? @db.Date
+  createdAt        DateTime @default(now())
+
+  school    School  @relation(fields: [schoolId], references: [id])
+  student   Student @relation(fields: [studentId], references: [id])
+  createdBy User    @relation("ParentMeetingCreator", fields: [createdById], references: [id])
+
+  @@index([schoolId, studentId, meetingDate])
+  @@map("parent_meeting_logs")
 }
 
 /// Sensitive actions (e.g. deleting an attendance record) with who, what and why.
