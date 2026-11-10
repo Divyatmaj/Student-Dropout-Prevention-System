@@ -130,19 +130,26 @@ export async function getOverview(user) {
 }
 
 /**
- * GET /interventions?status=&priority=&category=&assignedTo=me|<id>&due=overdue|week&studentId=&search=
+ * GET /interventions?status=&priority=&category=&assignedTo=me|<id>&due=overdue|week&dueFrom=&dueTo=&studentId=&search=
  * Open first (overdue, then soonest due), then closed, newest first.
  */
-export async function listInterventions(user, { status, priority, category, assignedTo, due, studentId, search }) {
+export async function listInterventions(user, { status, priority, category, assignedTo, due, dueFrom, dueTo, studentId, search }) {
   const today = schoolToday();
+  const dueLowerBound = [due === 'week' ? today : '', dueFrom].filter(Boolean).sort().at(-1);
+  const dueUpperBound = [due === 'week' ? addDays(today, 7) : '', dueTo].filter(Boolean).sort()[0];
+  const dueDateFilter = {
+    ...(due === 'overdue' && { lt: toDbDate(today) }),
+    ...(dueLowerBound && { gte: toDbDate(dueLowerBound) }),
+    ...(dueUpperBound && { lte: toDbDate(dueUpperBound) }),
+  };
   const where = visibleWhere(user, {
     ...(status === 'active' ? { status: { in: OPEN_INTERVENTION_STATUSES } } : status ? { status } : {}),
     ...(priority && { priority }),
     ...(category && { category }),
     ...(assignedTo && { assignedToId: assignedTo === 'me' ? user.id : assignedTo }),
     ...(studentId && { studentId }),
-    ...(due === 'overdue' && { status: { in: OPEN_INTERVENTION_STATUSES }, dueDate: { lt: toDbDate(today) } }),
-    ...(due === 'week' && { status: { in: OPEN_INTERVENTION_STATUSES }, dueDate: { gte: toDbDate(today), lte: toDbDate(addDays(today, 7)) } }),
+    ...((due === 'overdue' || due === 'week') && { status: { in: OPEN_INTERVENTION_STATUSES } }),
+    ...(Object.keys(dueDateFilter).length && { dueDate: dueDateFilter }),
     ...(search && {
       AND: [
         {

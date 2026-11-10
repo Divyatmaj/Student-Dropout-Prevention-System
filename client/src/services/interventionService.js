@@ -131,9 +131,9 @@ export async function getInterventionsOverview() {
  * → { interventions, total }
  */
 export async function getInterventions(filters = {}) {
-  const { status = '', priority = '', category = '', assignedTo = '', due = '', studentId = '', search = '' } = filters;
+  const { status = '', priority = '', category = '', assignedTo = '', due = '', dueFrom = '', dueTo = '', studentId = '', search = '' } = filters;
   if (!USE_MOCKS) {
-    return apiClient(`/interventions${buildQuery({ status, priority, category, assignedTo, due, studentId, search })}`);
+    return apiClient(`/interventions${buildQuery({ status, priority, category, assignedTo, due, dueFrom, dueTo, studentId, search })}`);
   }
 
   await mockDelay(300);
@@ -151,6 +151,8 @@ export async function getInterventions(filters = {}) {
         (!category || i.category === category) &&
         (!ownerId || i.assignedToId === ownerId) &&
         (!due || (due === 'overdue' ? i.isOverdue : i.isOpen && i.dueDate >= today && i.dueDate <= weekEnd)) &&
+        (!dueFrom || (i.dueDate && i.dueDate >= dueFrom)) &&
+        (!dueTo || (i.dueDate && i.dueDate <= dueTo)) &&
         (!studentId || i.studentId === studentId) &&
         (!q ||
           i.id.toLowerCase().includes(q) ||

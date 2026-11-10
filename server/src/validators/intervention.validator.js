@@ -16,6 +16,10 @@ const date = z.preprocess(
   (v) => (v === '' || v === undefined ? null : v),
   z.string().refine(isValidIsoDate, 'Use a valid date (YYYY-MM-DD).').nullable()
 );
+const optionalQueryDate = z.preprocess(
+  (v) => (v === '' || v === undefined ? undefined : v),
+  z.string().refine(isValidIsoDate, 'Use a valid date (YYYY-MM-DD).').optional()
+);
 
 export const createInterventionSchema = z.object({
   studentId: z.uuid('Choose a student.'),
@@ -54,6 +58,11 @@ export const listInterventionsQuery = z.object({
   category: optionalQueryEnum(CONCERN_CATEGORIES),
   assignedTo: z.preprocess((v) => (v === '' ? undefined : v), z.union([z.literal('me'), z.uuid()]).optional()),
   due: optionalQueryEnum(['overdue', 'week']),
+  dueFrom: optionalQueryDate,
+  dueTo: optionalQueryDate,
   studentId: z.preprocess((v) => (v === '' ? undefined : v), z.uuid().optional()),
   search: optionalQueryString,
+}).refine((query) => !query.dueFrom || !query.dueTo || query.dueFrom <= query.dueTo, {
+  message: 'Due-from date must be on or before due-to date.',
+  path: ['dueFrom'],
 });

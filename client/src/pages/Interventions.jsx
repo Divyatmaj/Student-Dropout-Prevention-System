@@ -24,7 +24,7 @@ import {
   INTERVENTION_STATUS_LABELS,
 } from '../constants/interventions.js';
 
-const DEFAULT_FILTERS = { status: 'active', priority: '', category: '', assignedTo: '', due: '' };
+const DEFAULT_FILTERS = { status: 'active', priority: '', category: '', assignedTo: '', due: '', dueFrom: '', dueTo: '' };
 
 export default function Interventions() {
   const { can } = useAuth();
@@ -151,6 +151,18 @@ export default function Interventions() {
             <option value="overdue">Overdue</option>
             <option value="week">Due in the next 7 days</option>
           </select>
+          <label style={{ display: 'grid', gap: '4px', fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+            Due from
+            <input type="date" className="filter-select" value={filters.dueFrom}
+              max={filters.dueTo || undefined} onChange={(e) => setFilter('dueFrom', e.target.value)}
+              aria-label="Filter interventions due on or after" />
+          </label>
+          <label style={{ display: 'grid', gap: '4px', fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+            Due to
+            <input type="date" className="filter-select" value={filters.dueTo}
+              min={filters.dueFrom || undefined} onChange={(e) => setFilter('dueTo', e.target.value)}
+              aria-label="Filter interventions due on or before" />
+          </label>
           {isFiltered && <Button variant="secondary" size="sm" icon={RotateCcw} onClick={reset}>Reset</Button>}
         </div>
         <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
