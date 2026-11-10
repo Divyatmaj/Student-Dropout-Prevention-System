@@ -51,22 +51,52 @@ export default function Dashboard() {
   const [days, setDays] = useState(readPeriod);
   const [overview, setOverview] = useState(null);
   const [attention, setAttention] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [attentionLoading, setAttentionLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState(null);
+  const [attentionError, setAttentionError] = useState(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setOverviewLoading(true);
+    setAttentionLoading(true);
+    setOverviewError(null);
+    setAttentionError(null);
+    const results = await Promise.allSettled([
+      getDashboardOverview({ days, role: user?.role }),
+      getDashboardAttention(),
+    ]);
+    const [overviewResult, attentionResult] = results;
+    if (overviewResult.status === 'fulfilled') setOverview(overviewResult.value);
+    else setOverviewError(overviewResult.reason?.message || 'Could not load dashboard summary.');
+    if (attentionResult.status === 'fulfilled') setAttention(attentionResult.value);
+    else setAttentionError(attentionResult.reason?.message || 'Could not load attention lists.');
+    setOverviewLoading(false);
+    setAttentionLoading(false);
+  }, [days, user?.role]);
+
+  const retryOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    setOverviewError(null);
     try {
-      const [ov, att] = await Promise.all([getDashboardOverview({ days, role: user?.role }), getDashboardAttention()]);
-      setOverview(ov);
-      setAttention(att);
+      setOverview(await getDashboardOverview({ days, role: user?.role }));
     } catch (err) {
-      setError(err.message || 'Could not load the dashboard.');
+      setOverviewError(err.message || 'Could not load dashboard summary.');
     } finally {
-      setLoading(false);
+      setOverviewLoading(false);
     }
   }, [days, user?.role]);
+
+  const retryAttention = useCallback(async () => {
+    setAttentionLoading(true);
+    setAttentionError(null);
+    try {
+      setAttention(await getDashboardAttention());
+    } catch (err) {
+      setAttentionError(err.message || 'Could not load attention lists.');
+    } finally {
+      setAttentionLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     load();
@@ -98,7 +128,9 @@ export default function Dashboard() {
           <select className="filter-select" value={days} onChange={(e) => changePeriod(Number(e.target.value))} aria-label="Attendance period">
             {DASHBOARD_PERIODS.map((p) => <option key={p.days} value={p.days}>{p.label}</option>)}
           </select>
-          <Button variant="secondary" size="md" icon={RefreshCw} onClick={load} disabled={loading}>Refresh</Button>
+          <Button variant="secondary" size="md" icon={RefreshCw} onClick={load} disabled={overviewLoading || attentionLoading}>
+            {overviewLoading || attentionLoading ? 'Refreshing…' : 'Refresh'}
+          </Button>
           {can(PERMISSIONS.INTERVENTION_CREATE) && (
             <Link to="/interventions?new=" className="btn btn-primary btn-md">
               <PlusCircle size={16} aria-hidden="true" /> New Intervention
@@ -107,10 +139,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {loading && !overview && <LoadingState message="Loading dashboard..." />}
-      {!loading && error && <ErrorState title="Unable to Load Dashboard" message={error} onRetry={load} />}
+      {overviewLoading && !overview && <LoadingState title="Loading Dashboard" message="Loading your summary and follow-ups. This may take a moment." />}
+      {!overviewLoading && !overview && overviewError && (
+        <ErrorState title="Dashboard Summary Unavailable" message={overviewError} onRetry={retryOverview} />
+      )}
+      {overviewError && overview && (
+        <div className="alert alert-error" role="alert" style={{ marginBottom: '16px' }}>
+          <span>Could not refresh the dashboard summary: {overviewError}</span>
+          <Button variant="secondary" size="sm" icon={RefreshCw} onClick={retryOverview} disabled={overviewLoading}>
+            Retry summary
+          </Button>
+        </div>
+      )}
 
-      {!error && overview && overview.activeStudents === 0 && (
+      {overview && overview.activeStudents === 0 && (
         <EmptyState
           icon={Users}
           title={isTeacher ? 'No Students Assigned Yet' : 'No Active Students Yet'}
@@ -124,8 +166,8 @@ export default function Dashboard() {
         />
       )}
 
-      {!error && overview && overview.activeStudents > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+      {overview && overview.activeStudents > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', opacity: overviewLoading ? 0.6 : 1, transition: 'opacity 0.2s' }} aria-busy={overviewLoading}>
           {/* Headline figures */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px' }}>
             <StatCard
@@ -204,9 +246,15 @@ export default function Dashboard() {
           </div>
 
           <div className="grid-2">
-            <AttentionList students={attention?.students ?? []} canCreate={can(PERMISSIONS.INTERVENTION_CREATE)} />
-            <FollowUpList followUps={attention?.followUps ?? []} userId={user?.id} />
+            <AttentionList students={attention?.students ?? []} canCreate={can(PERMISSIONS.INTERVENTION_CREATE)} loading={attentionLoading} error={attentionError} onRetry={retryAttention} />
+            <FollowUpList followUps={attention?.followUps ?? []} userId={user?.id} loading={attentionLoading} error={attentionError} onRetry={retryAttention} />
           </div>
+        </div>
+      )}
+      {!overview && attention && (
+        <div className="grid-2" style={{ marginTop: '24px' }}>
+          <AttentionList students={attention.students ?? []} canCreate={can(PERMISSIONS.INTERVENTION_CREATE)} loading={attentionLoading} error={attentionError} onRetry={retryAttention} />
+          <FollowUpList followUps={attention.followUps ?? []} userId={user?.id} loading={attentionLoading} error={attentionError} onRetry={retryAttention} />
         </div>
       )}
     </div>
@@ -245,7 +293,7 @@ function RiskDistribution({ counts, total }) {
   );
 }
 
-function AttentionList({ students, canCreate }) {
+function AttentionList({ students, canCreate, loading, error, onRetry }) {
   return (
     <div className="card">
       <div className="card-header">
@@ -254,11 +302,18 @@ function AttentionList({ students, canCreate }) {
           <p className="card-subtitle">High and medium indicators, with the main reason</p>
         </div>
       </div>
-      {students.length === 0 ? (
+      {loading && students.length === 0 ? (
+        <LoadingState title="Loading Risk Alerts" message="Getting students who may need a check-in." />
+      ) : error && students.length === 0 ? (
+        <ErrorState title="Risk Alerts Unavailable" message={error} onRetry={onRetry} />
+      ) : students.length === 0 ? (
         <div className="card-body" style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
           No students have a medium or high indicator right now.
         </div>
       ) : (
+        <>
+        {error && <p className="form-helper" role="status" style={{ padding: '10px 20px 0' }}>Could not refresh risk alerts. Showing the last loaded results.</p>}
+        {loading && <p className="form-helper" role="status" style={{ padding: '10px 20px 0' }}>Refreshing risk alerts…</p>}
         <ul style={{ listStyle: 'none' }}>
           {students.map((s) => (
             <li key={s.student.id} style={{ padding: '12px 20px', borderTop: '1px solid var(--color-border-subtle)', display: 'flex', gap: '12px', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
@@ -290,12 +345,13 @@ function AttentionList({ students, canCreate }) {
             </li>
           ))}
         </ul>
+        </>
       )}
     </div>
   );
 }
 
-function FollowUpList({ followUps, userId }) {
+function FollowUpList({ followUps, userId, loading, error, onRetry }) {
   return (
     <div className="card">
       <div className="card-header">
@@ -305,11 +361,18 @@ function FollowUpList({ followUps, userId }) {
         </div>
         <Link to="/interventions" className="btn btn-secondary btn-sm">All Interventions</Link>
       </div>
-      {followUps.length === 0 ? (
+      {loading && followUps.length === 0 ? (
+        <LoadingState title="Loading Follow-ups" message="Checking for overdue and upcoming interventions." />
+      ) : error && followUps.length === 0 ? (
+        <ErrorState title="Follow-ups Unavailable" message={error} onRetry={onRetry} />
+      ) : followUps.length === 0 ? (
         <div className="card-body" style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
           Nothing overdue or due this week.
         </div>
       ) : (
+        <>
+        {error && <p className="form-helper" role="status" style={{ padding: '10px 20px 0' }}>Could not refresh follow-ups. Showing the last loaded results.</p>}
+        {loading && <p className="form-helper" role="status" style={{ padding: '10px 20px 0' }}>Refreshing follow-ups…</p>}
         <ul style={{ listStyle: 'none' }}>
           {followUps.map((f) => (
             <li key={f.id} style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
@@ -334,6 +397,7 @@ function FollowUpList({ followUps, userId }) {
             </li>
           ))}
         </ul>
+        </>
       )}
     </div>
   );
