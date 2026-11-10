@@ -6,7 +6,7 @@ import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABELS } from '@udaan/shared';
 import SearchBar from '../common/SearchBar.jsx';
 import Badge from '../common/Badge.jsx';
 import Button from '../common/Button.jsx';
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import LoadingState from '../common/LoadingState.jsx';
 import ErrorState from '../common/ErrorState.jsx';
 import EmptyState from '../common/EmptyState.jsx';
@@ -317,11 +317,13 @@ function CorrectAttendanceModal({ record, onClose, onSaved }) {
   return (
     <Modal
       isOpen
-      onClose={saving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={saving}
+      hasUnsavedChanges={status !== record.status || note.trim() !== (record.note || '')}
       title="Correct Attendance"
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose} disabled={saving}>Cancel</Button>
+          <ModalCloseButton variant="secondary" size="md" disabled={saving}>Cancel</ModalCloseButton>
           <Button variant="primary" size="md" type="submit" form="correct-attendance-form" disabled={saving || unchanged}>
             {saving ? 'Saving...' : 'Save Correction'}
           </Button>
@@ -330,7 +332,7 @@ function CorrectAttendanceModal({ record, onClose, onSaved }) {
     >
       <form id="correct-attendance-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {error && (
-          <div className="alert alert-error" role="alert">
+          <div className="alert alert-error" role="alert" aria-live="assertive">
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{error}</span>
           </div>
@@ -382,11 +384,13 @@ function DeleteAttendanceModal({ record, onClose, onDeleted }) {
   return (
     <Modal
       isOpen
-      onClose={deleting ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={deleting}
+      hasUnsavedChanges={Boolean(reason.trim())}
       title="Delete Attendance Entry"
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose} disabled={deleting}>Cancel</Button>
+          <ModalCloseButton variant="secondary" size="md" disabled={deleting}>Cancel</ModalCloseButton>
           <Button variant="danger" size="md" type="submit" form="delete-attendance-form" disabled={deleting}>
             {deleting ? 'Deleting...' : 'Delete Entry'}
           </Button>

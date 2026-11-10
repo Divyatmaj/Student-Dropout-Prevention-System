@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import { createAssessment } from '../../services/academicService.js';
 import { apiDetailsToFieldErrors } from '../../utils/studentValidation.js';
 import { GRADES, SECTIONS } from '../../constants/students.js';
 import { SUBJECTS } from '../../constants/academics.js';
 import { todayISO } from '../../utils/formatters.js';
+import { focusFirstInvalidField } from '../../utils/formAccessibility.js';
 
 const EMPTY = { title: '', subject: '', grade: '', section: '', assessmentDate: todayISO(), maxMarks: '25' };
 
@@ -28,6 +29,7 @@ export default function AssessmentFormModal({ onClose, onCreated }) {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const hasUnsavedChanges = Object.keys(EMPTY).some((key) => values[key] !== EMPTY[key]);
 
   const set = (field) => (e) => {
     const next = { ...values, [field]: e.target.value };
@@ -40,7 +42,8 @@ export default function AssessmentFormModal({ onClose, onCreated }) {
     const v = validate(values);
     setErrors(v);
     if (Object.keys(v).length) {
-      setFormError('Please fix the highlighted fields.');
+      setFormError('Check the highlighted fields, then create the assessment again.');
+      focusFirstInvalidField('assessment-form');
       return;
     }
     setSaving(true);
@@ -56,8 +59,10 @@ export default function AssessmentFormModal({ onClose, onCreated }) {
       });
       onCreated(created);
     } catch (err) {
-      setErrors((prev) => ({ ...prev, ...apiDetailsToFieldErrors(err.details) }));
+      const fieldErrors = apiDetailsToFieldErrors(err.details);
+      setErrors((prev) => ({ ...prev, ...fieldErrors }));
       setFormError(err.message || 'Could not create the assessment.');
+      if (Object.keys(fieldErrors).length) focusFirstInvalidField('assessment-form');
       setSaving(false);
     }
   };
@@ -76,11 +81,13 @@ export default function AssessmentFormModal({ onClose, onCreated }) {
   return (
     <Modal
       isOpen
-      onClose={saving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={saving}
+      hasUnsavedChanges={hasUnsavedChanges}
       title="New Assessment"
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose} disabled={saving}>Cancel</Button>
+          <ModalCloseButton variant="secondary" size="md" disabled={saving}>Cancel</ModalCloseButton>
           <Button variant="primary" size="md" type="submit" form="assessment-form" disabled={saving}>
             {saving ? 'Creating...' : 'Create & Enter Marks'}
           </Button>
@@ -89,7 +96,7 @@ export default function AssessmentFormModal({ onClose, onCreated }) {
     >
       <form id="assessment-form" onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {formError && (
-          <div className="alert alert-error" role="alert">
+          <div className="alert alert-error" role="alert" aria-live="assertive">
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{formError}</span>
           </div>

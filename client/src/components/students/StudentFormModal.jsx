@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, Lock } from 'lucide-react';
 
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import { createStudent, updateStudent } from '../../services/studentService.js';
 import { getAssignableStaff } from '../../services/staffService.js';
@@ -10,6 +10,7 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { PERMISSIONS } from '../../utils/permissions.js';
 import { GRADES, SECTIONS, GUARDIAN_RELATIONSHIPS } from '../../constants/students.js';
 import { todayISO } from '../../utils/formatters.js';
+import { focusFirstInvalidField } from '../../utils/formAccessibility.js';
 import {
   studentToFormValues,
   toStudentPayload,
@@ -41,7 +42,8 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
   const isEdit = Boolean(student);
   const canEditEnrolment = !isEdit || can(PERMISSIONS.STUDENT_EDIT_ENROLMENT);
 
-  const [values, setValues] = useState(() => studentToFormValues(student));
+  const initialValues = studentToFormValues(student);
+  const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [formError, setFormError] = useState('');
@@ -83,7 +85,8 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
     setErrors(validation);
     setTouched(Object.fromEntries(Object.keys(values).map((k) => [k, true])));
     if (Object.keys(validation).length > 0) {
-      setFormError('Please fix the highlighted fields.');
+      setFormError('Check the highlighted fields, then save again.');
+      focusFirstInvalidField(FORM_ID);
       return;
     }
 
@@ -103,6 +106,7 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
       const fieldErrors = apiDetailsToFieldErrors(err.details);
       setErrors((prev) => ({ ...prev, ...fieldErrors }));
       setFormError(err.message || 'Could not save the student. Please try again.');
+      if (Object.keys(fieldErrors).length) focusFirstInvalidField(FORM_ID);
     } finally {
       setSubmitting(false);
     }
@@ -130,13 +134,15 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
   return (
     <Modal
       isOpen
-      onClose={submitting ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={submitting}
+      hasUnsavedChanges={JSON.stringify(values) !== JSON.stringify(initialValues)}
       title={isEdit ? `Edit ${student.fullName}` : 'Add Student'}
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose} disabled={submitting}>
+          <ModalCloseButton variant="secondary" size="md" disabled={submitting}>
             Cancel
-          </Button>
+          </ModalCloseButton>
           <Button variant="primary" size="md" type="submit" form={FORM_ID} disabled={submitting}>
             {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Student'}
           </Button>
@@ -150,7 +156,7 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
         style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
       >
         {formError && (
-          <div className="alert alert-error" role="alert">
+          <div className="alert alert-error" role="alert" aria-live="assertive">
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{formError}</span>
           </div>

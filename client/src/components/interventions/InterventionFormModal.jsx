@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { validateInterventionFields, CONCERN_CATEGORIES, INTERVENTION_PRIORITIES } from '@udaan/shared';
 
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import Badge from '../common/Badge.jsx';
 import LoadingState from '../common/LoadingState.jsx';
@@ -15,6 +15,7 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { ROLE_LABELS } from '../../utils/permissions.js';
 import { apiDetailsToFieldErrors } from '../../utils/studentValidation.js';
 import { todayISO, addDaysISO, formatClass } from '../../utils/formatters.js';
+import { focusFirstInvalidField } from '../../utils/formAccessibility.js';
 import {
   CONCERN_CATEGORY_LABELS,
   CONCERN_CATEGORY_HELP,
@@ -22,6 +23,21 @@ import {
 } from '../../constants/interventions.js';
 
 const EDITABLE = ['category', 'priority', 'description', 'actionPlan', 'assignedToId', 'dueDate', 'followUpDate'];
+
+function initialFormValues({ isEdit, intervention, initialStudentId, userId }) {
+  return isEdit
+    ? Object.fromEntries(EDITABLE.map((k) => [k, intervention[k] ?? '']))
+    : {
+        studentId: initialStudentId,
+        category: '',
+        priority: 'MEDIUM',
+        description: '',
+        actionPlan: '',
+        assignedToId: userId ?? '',
+        dueDate: addDaysISO(todayISO(), 7),
+        followUpDate: '',
+      };
+}
 
 function toErrors(details) {
   return details.reduce((acc, d) => ({ ...acc, [d.field]: d.message }), {});
@@ -36,20 +52,8 @@ export default function InterventionFormModal({ intervention = null, initialStud
   const { user } = useAuth();
   const isEdit = Boolean(intervention);
 
-  const [values, setValues] = useState(() =>
-    isEdit
-      ? Object.fromEntries(EDITABLE.map((k) => [k, intervention[k] ?? '']))
-      : {
-          studentId: initialStudentId,
-          category: '',
-          priority: 'MEDIUM',
-          description: '',
-          actionPlan: '',
-          assignedToId: user?.id ?? '',
-          dueDate: addDaysISO(todayISO(), 7),
-          followUpDate: '',
-        }
-  );
+  const initialValues = initialFormValues({ isEdit, intervention, initialStudentId, userId: user?.id });
+  const [values, setValues] = useState(initialValues);
   const [note, setNote] = useState('');
   const [students, setStudents] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -122,7 +126,8 @@ export default function InterventionFormModal({ intervention = null, initialStud
     const v = toErrors(validateInterventionFields(payload, { partial: isEdit }));
     setErrors(v);
     if (Object.keys(v).length) {
-      setFormError('Please fix the highlighted fields.');
+      setFormError('Check the highlighted fields, then save the intervention again.');
+      focusFirstInvalidField('intervention-form');
       return;
     }
 
@@ -145,8 +150,10 @@ export default function InterventionFormModal({ intervention = null, initialStud
       }
       onSaved(saved);
     } catch (err) {
-      setErrors((prev) => ({ ...prev, ...apiDetailsToFieldErrors(err.details) }));
+      const fieldErrors = apiDetailsToFieldErrors(err.details);
+      setErrors((prev) => ({ ...prev, ...fieldErrors }));
       setFormError(err.message || 'Could not save the intervention.');
+      if (Object.keys(fieldErrors).length) focusFirstInvalidField('intervention-form');
       setSaving(false);
     }
   };
@@ -168,11 +175,13 @@ export default function InterventionFormModal({ intervention = null, initialStud
     <Modal
       isOpen
       size="lg"
-      onClose={saving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={saving}
+      hasUnsavedChanges={JSON.stringify(values) !== JSON.stringify(initialValues) || Boolean(note.trim())}
       title={isEdit ? `Edit plan — ${intervention.student?.fullName ?? intervention.id}` : 'New Intervention'}
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose} disabled={saving}>Cancel</Button>
+          <ModalCloseButton variant="secondary" size="md" disabled={saving}>Cancel</ModalCloseButton>
           <Button variant="primary" size="md" type="submit" form="intervention-form" disabled={saving || loading || Boolean(loadError)}>
             {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Intervention'}
           </Button>
@@ -185,7 +194,7 @@ export default function InterventionFormModal({ intervention = null, initialStud
       {!loading && !loadError && (
         <form id="intervention-form" onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {formError && (
-            <div className="alert alert-error" role="alert">
+            <div className="alert alert-error" role="alert" aria-live="assertive">
               <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
               <span>{formError}</span>
             </div>

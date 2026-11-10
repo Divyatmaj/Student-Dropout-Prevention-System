@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import RiskExplanation from './RiskExplanation.jsx';
 import { markRiskReviewed } from '../../services/riskService.js';
@@ -31,11 +31,13 @@ export default function ReviewRiskModal({ assessment, studentName, onClose, onRe
   return (
     <Modal
       isOpen
-      onClose={saving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={saving}
+      hasUnsavedChanges={Boolean(note.trim())}
       title={`Review flag — ${studentName}`}
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose} disabled={saving}>Cancel</Button>
+          <ModalCloseButton variant="secondary" size="md" disabled={saving}>Cancel</ModalCloseButton>
           <Button variant="primary" size="md" type="submit" form="review-risk-form" disabled={saving}>
             {saving ? 'Saving...' : 'Mark as Reviewed'}
           </Button>
@@ -44,7 +46,7 @@ export default function ReviewRiskModal({ assessment, studentName, onClose, onRe
     >
       <form id="review-risk-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {error && (
-          <div className="alert alert-error" role="alert">
+          <div className="alert alert-error" role="alert" aria-live="assertive">
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{error}</span>
           </div>

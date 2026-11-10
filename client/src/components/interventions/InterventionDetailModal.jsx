@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { AlertCircle, PlayCircle, CheckCircle2, XCircle, RotateCcw, Pencil, MessageSquare } from 'lucide-react';
 import { MIN_OUTCOME_LENGTH } from '@udaan/shared';
 
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import Badge from '../common/Badge.jsx';
 import LoadingState from '../common/LoadingState.jsx';
@@ -44,6 +44,7 @@ export default function InterventionDetailModal({ interventionId, onClose, onCha
   const [loadError, setLoadError] = useState(null);
   const [action, setAction] = useState(null); // key of ACTIONS
   const [text, setText] = useState('');
+  const [confirmActionDiscard, setConfirmActionDiscard] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -112,9 +113,11 @@ export default function InterventionDetailModal({ interventionId, onClose, onCha
     <Modal
       isOpen
       size="lg"
-      onClose={saving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={saving}
+      hasUnsavedChanges={Boolean(action && text.trim())}
       title={item ? `${CONCERN_CATEGORY_LABELS[item.category]} support — ${item.student?.fullName ?? ''}` : 'Intervention'}
-      footer={<Button variant="secondary" size="md" onClick={onClose} disabled={saving}>Close</Button>}
+      footer={<ModalCloseButton variant="secondary" size="md" disabled={saving}>Close</ModalCloseButton>}
     >
       {loading && <LoadingState message="Loading intervention..." />}
       {!loading && loadError && <ErrorState title="Unable to Load Intervention" message={loadError} onRetry={load} />}
@@ -238,7 +241,15 @@ export default function InterventionDetailModal({ interventionId, onClose, onCha
                 {error && <span className="form-error" role="alert">{error}</span>}
               </div>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <Button variant="secondary" size="sm" onClick={() => setAction(null)} disabled={saving}>Back</Button>
+                {confirmActionDiscard ? (
+                  <>
+                    <span className="form-helper" role="alert">Discard the text you entered?</span>
+                    <Button variant="secondary" size="sm" onClick={() => setConfirmActionDiscard(false)} disabled={saving}>Keep editing</Button>
+                    <Button variant="danger" size="sm" onClick={() => { setText(''); setAction(null); setConfirmActionDiscard(false); }} disabled={saving}>Discard text</Button>
+                  </>
+                ) : (
+                  <Button variant="secondary" size="sm" onClick={() => text.trim() ? setConfirmActionDiscard(true) : setAction(null)} disabled={saving}>Back</Button>
+                )}
                 <Button variant="primary" size="sm" onClick={submitAction} disabled={saving}>
                   {saving ? 'Saving...' : config.button}
                 </Button>

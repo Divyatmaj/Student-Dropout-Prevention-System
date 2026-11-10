@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { validateScore, toPercentage } from '@udaan/shared';
 
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import LoadingState from '../common/LoadingState.jsx';
 import ErrorState from '../common/ErrorState.jsx';
@@ -10,6 +10,7 @@ import { getAssessment, saveMarks } from '../../services/academicService.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { PERMISSIONS } from '../../utils/permissions.js';
 import { formatClass, formatDate, formatPercent } from '../../utils/formatters.js';
+import { focusFirstInvalidField } from '../../utils/formAccessibility.js';
 
 /**
  * Enter or correct marks for every student in an assessment's class.
@@ -70,6 +71,7 @@ export default function MarksSheetModal({ assessmentId, onClose, onSaved }) {
   const handleSave = async () => {
     if (hasErrors) {
       setSaveError('Fix the highlighted scores before saving.');
+      focusFirstInvalidField();
       return;
     }
     setSaving(true);
@@ -90,7 +92,9 @@ export default function MarksSheetModal({ assessmentId, onClose, onSaved }) {
     <Modal
       isOpen
       size="lg"
-      onClose={saving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={saving}
+      hasUnsavedChanges={canEdit && changed.length > 0}
       title={assessment ? `${assessment.subject} · ${assessment.title}` : 'Marks'}
       footer={
         <>
@@ -99,9 +103,9 @@ export default function MarksSheetModal({ assessmentId, onClose, onSaved }) {
               <AlertCircle size={13} /> {saveError}
             </span>
           )}
-          <Button variant="secondary" size="md" onClick={onClose} disabled={saving}>
+          <ModalCloseButton variant="secondary" size="md" disabled={saving}>
             {canEdit ? 'Cancel' : 'Close'}
-          </Button>
+          </ModalCloseButton>
           {canEdit && (
             <Button variant="primary" size="md" onClick={handleSave} disabled={saving || changed.length === 0}>
               {saving ? 'Saving...' : changed.length ? `Save ${changed.length} mark${changed.length === 1 ? '' : 's'}` : 'No changes'}
@@ -164,13 +168,14 @@ export default function MarksSheetModal({ assessmentId, onClose, onSaved }) {
                             disabled={!canEdit || saving}
                             aria-label={`Score for ${student.fullName}`}
                             aria-invalid={errors[student.id] ? 'true' : 'false'}
+                            aria-describedby={errors[student.id] ? `mark-error-${student.id}` : undefined}
                             onChange={(e) => {
                               setSaveError('');
                               setScores((prev) => ({ ...prev, [student.id]: e.target.value }));
                             }}
                             style={{ width: '110px', padding: '6px 10px' }}
                           />
-                          {errors[student.id] && <div className="form-error" style={{ marginTop: '4px' }}>{errors[student.id]}</div>}
+                          {errors[student.id] && <div id={`mark-error-${student.id}`} className="form-error" role="alert" style={{ marginTop: '4px' }}>{errors[student.id]}</div>}
                         </td>
                         <td style={{ fontWeight: 600 }}>{formatPercent(pct)}</td>
                       </tr>

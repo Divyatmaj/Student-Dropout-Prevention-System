@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import { createStaff, updateStaff } from '../../services/staffService.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { ROLE_LABELS } from '../../utils/permissions.js';
 import { apiDetailsToFieldErrors } from '../../utils/studentValidation.js';
 import { STAFF_ROLES, STAFF_ROLE_HELP, MIN_PASSWORD_LENGTH } from '../../constants/staff.js';
+import { focusFirstInvalidField } from '../../utils/formAccessibility.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -37,6 +38,9 @@ export default function StaffFormModal({ staff = null, onClose, onSaved }) {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const hasUnsavedChanges = values.name !== (staff?.name ?? '') ||
+    values.email !== (staff?.email ?? '') || values.role !== (staff?.role ?? 'TEACHER') ||
+    (!isEdit && values.password.length > 0);
 
   const set = (field) => (e) => {
     const next = { ...values, [field]: e.target.value };
@@ -50,7 +54,8 @@ export default function StaffFormModal({ staff = null, onClose, onSaved }) {
     const v = validate(values, isEdit);
     setErrors(v);
     if (Object.keys(v).length) {
-      setFormError('Please fix the highlighted fields.');
+      setFormError('Check the highlighted fields, then save again.');
+      focusFirstInvalidField('staff-form');
       return;
     }
     setSaving(true);
@@ -61,8 +66,10 @@ export default function StaffFormModal({ staff = null, onClose, onSaved }) {
         : await createStaff({ ...payload, password: values.password });
       onSaved(saved);
     } catch (err) {
-      setErrors((prev) => ({ ...prev, ...apiDetailsToFieldErrors(err.details) }));
+      const fieldErrors = apiDetailsToFieldErrors(err.details);
+      setErrors((prev) => ({ ...prev, ...fieldErrors }));
       setFormError(err.message || 'Could not save the account.');
+      if (Object.keys(fieldErrors).length) focusFirstInvalidField('staff-form');
       setSaving(false);
     }
   };
@@ -81,11 +88,13 @@ export default function StaffFormModal({ staff = null, onClose, onSaved }) {
   return (
     <Modal
       isOpen
-      onClose={saving ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={saving}
+      hasUnsavedChanges={hasUnsavedChanges}
       title={isEdit ? `Edit ${staff.name}` : 'Add Staff Member'}
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose} disabled={saving}>Cancel</Button>
+          <ModalCloseButton variant="secondary" size="md" disabled={saving}>Cancel</ModalCloseButton>
           <Button variant="primary" size="md" type="submit" form="staff-form" disabled={saving}>
             {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Account'}
           </Button>
@@ -94,7 +103,7 @@ export default function StaffFormModal({ staff = null, onClose, onSaved }) {
     >
       <form id="staff-form" onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {formError && (
-          <div className="alert alert-error" role="alert">
+          <div className="alert alert-error" role="alert" aria-live="assertive">
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{formError}</span>
           </div>

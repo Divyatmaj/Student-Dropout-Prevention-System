@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertCircle, Archive } from 'lucide-react';
 
-import Modal from '../common/Modal.jsx';
+import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
 import { updateStudentStatus } from '../../services/studentService.js';
 import {
@@ -24,6 +24,7 @@ function StudentStatusDialog({ student, onClose, onSaved }) {
   const [status, setStatus] = useState(
     student.status === STUDENT_STATUS.ACTIVE ? STUDENT_STATUS.INACTIVE : STUDENT_STATUS.ACTIVE
   );
+  const initialStatus = student.status === STUDENT_STATUS.ACTIVE ? STUDENT_STATUS.INACTIVE : STUDENT_STATUS.ACTIVE;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,13 +45,15 @@ function StudentStatusDialog({ student, onClose, onSaved }) {
   return (
     <Modal
       isOpen
-      onClose={submitting ? () => {} : onClose}
+      onClose={onClose}
+      closeDisabled={submitting}
+      hasUnsavedChanges={status !== initialStatus}
       title="Change Enrolment Status"
       footer={
         <>
-          <Button variant="secondary" size="md" onClick={onClose} disabled={submitting}>
+          <ModalCloseButton variant="secondary" size="md" disabled={submitting}>
             Cancel
-          </Button>
+          </ModalCloseButton>
           <Button
             variant={status === STUDENT_STATUS.ACTIVE ? 'primary' : 'danger'}
             size="md"
@@ -69,7 +72,7 @@ function StudentStatusDialog({ student, onClose, onSaved }) {
         style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
       >
         {error && (
-          <div className="alert alert-error" role="alert">
+          <div className="alert alert-error" role="alert" aria-live="assertive">
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{error}</span>
           </div>
