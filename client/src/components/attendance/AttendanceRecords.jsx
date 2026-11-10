@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Pencil, Trash2, RotateCcw, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Pencil, Trash2, RotateCcw, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, Download } from 'lucide-react';
 import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABELS } from '@udaan/shared';
 
 import SearchBar from '../common/SearchBar.jsx';
@@ -22,6 +22,38 @@ import { GRADES, SECTIONS } from '../../constants/students.js';
 import { formatDate, formatClass, todayISO } from '../../utils/formatters.js';
 
 const DEFAULT_FILTERS = { date: '', grade: '', section: '', status: '' };
+const EXPORT_PAGE_SIZE = 500;
+
+function csvCell(value) {
+  let text = String(value ?? '');
+  // Prevent spreadsheet programs from interpreting user supplied text as a formula.
+  if (/^[\s\u0000-\u001f]*[=+@-]/.test(text)) text = `'${text}`;
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function downloadAttendanceCsv(records) {
+  const columns = [
+    ['Date', (record) => record.date],
+    ['Student', (record) => record.studentName],
+    ['Student Code', (record) => record.studentCode],
+    ['Class', (record) => formatClass(record.grade, record.section)],
+    ['Status', (record) => ATTENDANCE_STATUS_LABELS[record.status] || record.status],
+    ['Note', (record) => record.note],
+    ['Recorded By', (record) => record.recordedByName],
+  ];
+  const rows = [columns.map(([heading]) => csvCell(heading)).join(','), ...records.map((record) =>
+    columns.map(([, value]) => csvCell(value(record))).join(',')
+  )];
+  const blob = new Blob([`\uFEFF${rows.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `attendance-${todayISO()}.csv`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
 function useDebouncedValue(value, delay = 300) {
   const [debounced, setDebounced] = useState(value);
@@ -47,6 +79,8 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [notice, setNotice] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +114,27 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
   const reset = () => {
     setSearch('');
     setFilters(DEFAULT_FILTERS);
+  };
+  const exportCsv = async () => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const exportFilters = { ...filters, search: debouncedSearch, page: 1, limit: EXPORT_PAGE_SIZE };
+      const firstPage = await getAttendanceRecords(exportFilters);
+      const allRecords = [...(firstPage.records || [])];
+      const totalRecords = firstPage.total ?? allRecords.length;
+      const pageCount = Math.ceil(totalRecords / EXPORT_PAGE_SIZE);
+      for (let nextPage = 2; nextPage <= pageCount; nextPage += 1) {
+        const next = await getAttendanceRecords({ ...exportFilters, page: nextPage });
+        allRecords.push(...(next.records || []));
+      }
+      downloadAttendanceCsv(allRecords);
+      setNotice(`Exported ${allRecords.length} attendance record${allRecords.length === 1 ? '' : 's'} to CSV.`);
+    } catch (err) {
+      setExportError(err.message || 'Could not export attendance records.');
+    } finally {
+      setExporting(false);
+    }
   };
   const isFiltered = search || Object.values(filters).some(Boolean);
   const totalPages = Math.max(1, Math.ceil(total / ATTENDANCE_PAGE_SIZE));
@@ -124,10 +179,22 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
             <Button variant="secondary" size="sm" icon={RotateCcw} onClick={reset}>Reset</Button>
           )}
         </div>
-        <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-          {total} record{total === 1 ? '' : 's'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+            {total} record{total === 1 ? '' : 's'}
+          </div>
+          <Button variant="secondary" size="sm" icon={Download} onClick={exportCsv} disabled={exporting || loading || total === 0}>
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </Button>
         </div>
       </div>
+
+      {exportError && (
+        <div className="alert alert-error" role="alert" style={{ marginBottom: '16px' }}>
+          <AlertCircle size={16} style={{ flexShrink: 0 }} />
+          <span>{exportError}</span>
+        </div>
+      )}
 
       {notice && (
         <div className="alert alert-success" role="status" style={{ marginBottom: '16px' }}>
