@@ -15,12 +15,6 @@ import { useAuth } from '../hooks/useAuth.js';
 import { PERMISSIONS } from '../utils/permissions.js';
 import { formatClass, formatDate, formatPercent, attendanceTone } from '../utils/formatters.js';
 
-const PERIODS = [
-  { days: 7, label: 'Last 7 days' },
-  { days: 30, label: 'Last 30 days' },
-  { days: 90, label: 'Last 90 days' },
-];
-
 function daysAgo(days) {
   const date = new Date();
   date.setDate(date.getDate() - days);
@@ -41,22 +35,28 @@ export default function Attendance() {
   const requestedTab = searchParams.get('tab');
   const activeTab = tabs.some((t) => t.id === requestedTab) ? requestedTab : tabs[0].id;
 
-  const [periodDays, setPeriodDays] = useState(30);
+  const [periodFrom, setPeriodFrom] = useState(() => daysAgo(30));
+  const [periodTo, setPeriodTo] = useState(() => daysAgo(0));
   const [overview, setOverview] = useState(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState(null);
 
   const loadOverview = useCallback(async () => {
+    if (!periodFrom || !periodTo || periodFrom > periodTo) {
+      setOverviewError('Choose a start date on or before the end date.');
+      setOverviewLoading(false);
+      return;
+    }
     setOverviewLoading(true);
     setOverviewError(null);
     try {
-      setOverview(await getAttendanceOverview({ from: daysAgo(periodDays) }));
+      setOverview(await getAttendanceOverview({ from: periodFrom, to: periodTo }));
     } catch (err) {
       setOverviewError(err.message || 'Could not load the attendance overview.');
     } finally {
       setOverviewLoading(false);
     }
-  }, [periodDays]);
+  }, [periodFrom, periodTo]);
 
   useEffect(() => {
     loadOverview();
@@ -79,21 +79,26 @@ export default function Attendance() {
             conversation.
           </p>
         </div>
-        <select
-          className="filter-select"
-          value={periodDays}
-          onChange={(e) => setPeriodDays(Number(e.target.value))}
-          aria-label="Overview period"
-        >
-          {PERIODS.map((p) => (
-            <option key={p.days} value={p.days}>{p.label}</option>
-          ))}
-        </select>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'end', flexWrap: 'wrap' }}>
+          <label style={{ display: 'grid', gap: '4px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+            From
+            <input className="form-input" type="date" value={periodFrom} max={periodTo || undefined}
+              onChange={(e) => setPeriodFrom(e.target.value)} aria-label="Attendance summary start date" />
+          </label>
+          <label style={{ display: 'grid', gap: '4px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+            To
+            <input className="form-input" type="date" value={periodTo} max={daysAgo(0)} min={periodFrom || undefined}
+              onChange={(e) => setPeriodTo(e.target.value)} aria-label="Attendance summary end date" />
+          </label>
+        </div>
       </div>
 
       {/* Summary cards */}
       {overviewError && !overview && (
         <ErrorState title="Unable to Load Attendance Summary" message={overviewError} onRetry={loadOverview} />
+      )}
+      {overviewError && overview && (
+        <div className="alert alert-error" role="alert" style={{ marginBottom: '16px' }}>{overviewError}</div>
       )}
       {overview && (
         <div
@@ -122,6 +127,14 @@ export default function Attendance() {
             iconColor="#0369a1"
             iconBg="#e0f2fe"
             subtitle={overview.latestDay ? `Students marked on ${formatDate(overview.latestDay.date)}` : 'Nothing recorded yet'}
+          />
+          <StatCard
+            title="Records in Period"
+            value={overview.schoolSummary?.recordedDays ?? 0}
+            icon={ClipboardCheck}
+            iconColor="#0369a1"
+            iconBg="#e0f2fe"
+            subtitle={`${overview.schoolSummary?.present ?? 0} present · ${overview.schoolSummary?.late ?? 0} late · ${overview.schoolSummary?.absent ?? 0} absent · ${overview.schoolSummary?.excused ?? 0} excused`}
           />
           <StatCard
             title={`Below ${ATTENDANCE_THRESHOLDS.low}%`}

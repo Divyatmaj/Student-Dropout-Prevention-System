@@ -148,6 +148,7 @@ export async function getAttendanceOverview({ from, to } = {}) {
 
   return {
     period,
+    schoolSummary: summarizeAttendance(inPeriod),
     schoolAttendanceRate: summarizeAttendance(inPeriod).attendancePercentage,
     activeStudents: active.length,
     latestDay,
