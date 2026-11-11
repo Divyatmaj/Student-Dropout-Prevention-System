@@ -14,6 +14,7 @@ const HEADER_FIELDS = {
   guardianrelationship: 'guardianRelationship',
   financialbarrierreported: 'financialBarrierReported',
   supportnotes: 'supportNotes',
+  strengthsinterests: 'strengthsInterests',
   classteacheremail: 'classTeacherEmail',
   teacheremail: 'classTeacherEmail',
 };
@@ -90,5 +91,5 @@ export const STUDENT_IMPORT_MAX_ROWS = 50;
 export const STUDENT_IMPORT_MAX_FILE_BYTES = 45 * 1024;
 
 export const STUDENT_CSV_TEMPLATE = [
-  'studentCode,fullName,grade,section,dateOfBirth,admissionDate,guardianName,guardianPhone,guardianRelationship,financialBarrierReported,supportNotes,classTeacherEmail',
+  'studentCode,fullName,grade,section,dateOfBirth,admissionDate,guardianName,guardianPhone,guardianRelationship,financialBarrierReported,supportNotes,strengthsInterests,classTeacherEmail',
 ].join('\n');

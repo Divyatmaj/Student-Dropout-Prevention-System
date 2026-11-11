@@ -340,6 +340,14 @@ export default function StudentDetail() {
 
             <div style={{ marginTop: '14px' }}>
               <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '6px' }}>
+                Strengths and interests
+              </div>
+              <p style={{ fontSize: '13px', lineHeight: 1.5, color: student.strengthsInterests ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
+                {student.strengthsInterests || 'No strengths or interests recorded.'}
+              </p>
+            </div>
+            <div style={{ marginTop: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '6px' }}>
                 Support notes
               </div>
               <p style={{ fontSize: '13px', lineHeight: 1.5, color: student.supportNotes ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>

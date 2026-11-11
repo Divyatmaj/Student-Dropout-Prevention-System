@@ -21,6 +21,7 @@ export const EMPTY_STUDENT_FORM = {
   guardianRelationship: '',
   financialBarrierReported: false,
   supportNotes: '',
+  strengthsInterests: '',
   assignedTeacherId: '',
 };
 
@@ -59,6 +60,7 @@ export function toStudentPayload(values) {
     guardianRelationship: clean(values.guardianRelationship),
     financialBarrierReported: Boolean(values.financialBarrierReported),
     supportNotes: clean(values.supportNotes),
+    strengthsInterests: clean(values.strengthsInterests),
     assignedTeacherId: clean(values.assignedTeacherId),
   };
 }
@@ -113,6 +115,10 @@ export function validateStudentForm(values) {
 
   if (payload.supportNotes && payload.supportNotes.length > 1000) {
     errors.supportNotes = 'Support notes must be 1000 characters or fewer.';
+  }
+
+  if (payload.strengthsInterests && payload.strengthsInterests.length > 1000) {
+    errors.strengthsInterests = 'Strengths and interests must be 1000 characters or fewer.';
   }
 
   return errors;

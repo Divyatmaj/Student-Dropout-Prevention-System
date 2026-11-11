@@ -47,6 +47,7 @@ const fields = {
   ),
   financialBarrierReported: z.boolean({ error: 'Must be true or false.' }),
   supportNotes: nullableText(1000, 'Support notes must be 1000 characters or fewer.'),
+  strengthsInterests: nullableText(1000, 'Strengths and interests must be 1000 characters or fewer.'),
   assignedTeacherId: z.preprocess((v) => (v === '' || v === undefined ? null : v), z.uuid('Choose a teacher from the list.').nullable()),
 };
 
@@ -60,6 +61,7 @@ export const createStudentSchema = z.object({
   guardianPhone: fields.guardianPhone.optional(),
   guardianRelationship: fields.guardianRelationship.optional(),
   supportNotes: fields.supportNotes.optional(),
+  strengthsInterests: fields.strengthsInterests.optional(),
   assignedTeacherId: fields.assignedTeacherId.optional(),
 });
 

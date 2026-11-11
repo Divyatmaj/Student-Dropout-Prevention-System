@@ -303,6 +303,22 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
 
         <div className="form-section-title">Support information</div>
 
+        <div className="form-group">
+          <label className="form-label" htmlFor="student-strengthsInterests">Student strengths and interests</label>
+          <textarea
+            {...fieldProps('strengthsInterests')}
+            className="form-input"
+            rows={3}
+            maxLength={1000}
+            placeholder="What does the student enjoy or do well? e.g. drawing, football, helping classmates, storytelling."
+          />
+          {fieldError('strengthsInterests') || (
+            <span className="form-helper">
+              Positive context for planning supportive activities. Avoid labels or sensitive details. {values.strengthsInterests.length}/1000
+            </span>
+          )}
+        </div>
+
         <label className="form-checkbox" htmlFor="student-financialBarrierReported">
           <input
             id="student-financialBarrierReported"

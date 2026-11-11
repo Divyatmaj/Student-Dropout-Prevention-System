@@ -115,7 +115,7 @@ export default function StudentImportModal({ onClose, onImported }) {
         </div>
 
         <p className="form-helper">
-          Required columns: <code>studentCode</code>, <code>fullName</code>, <code>grade</code>. Optional columns include section, dates (YYYY-MM-DD), guardian details, support notes, financialBarrierReported, and classTeacherEmail.
+          Required columns: <code>studentCode</code>, <code>fullName</code>, <code>grade</code>. Optional columns include section, dates (YYYY-MM-DD), guardian details, support notes, strengthsInterests, financialBarrierReported, and classTeacherEmail.
         </p>
         <p className="form-helper">
           Valid financial barrier values: true/false, yes/no, or 1/0. Class teacher must be an active teacher’s email in this school.

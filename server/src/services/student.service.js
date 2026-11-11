@@ -65,6 +65,7 @@ export function toStudent(s, attendanceRate = null) {
     guardianRelationship: s.guardianRelationship,
     financialBarrierReported: s.financialBarrierReported,
     supportNotes: s.supportNotes,
+    strengthsInterests: s.strengthsInterests,
     assignedTeacherId: s.assignedTeacherId,
     assignedTeacherName: s.assignedTeacher?.name ?? null,
     createdAt: s.createdAt,

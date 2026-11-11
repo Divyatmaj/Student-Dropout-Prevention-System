@@ -159,6 +159,8 @@ model Student {
   financialBarrierReported Boolean       @default(false)
   /// Support context for authorised staff only. Never shown on dashboards.
   supportNotes             String?
+  /// Positive interests staff can use when planning student support.
+  strengthsInterests       String?
   assignedTeacherId        String?       @db.Uuid
   createdAt                DateTime      @default(now())
   updatedAt                DateTime      @updatedAt
