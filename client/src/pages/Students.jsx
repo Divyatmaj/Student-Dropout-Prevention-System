@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   UserPlus,
+  Upload,
   RotateCcw,
   ExternalLink,
   Pencil,
@@ -19,6 +20,7 @@ import LoadingState from '../components/common/LoadingState.jsx';
 import ErrorState from '../components/common/ErrorState.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
 import StudentFormModal from '../components/students/StudentFormModal.jsx';
+import StudentImportModal from '../components/students/StudentImportModal.jsx';
 import '../components/common/common.css';
 
 import { getStudents } from '../services/studentService.js';
@@ -65,6 +67,7 @@ export default function Students() {
   const [page, setPage] = useState(1);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [notice, setNotice] = useState('');
 
@@ -128,6 +131,12 @@ export default function Students() {
     fetchStudentList();
   };
 
+  const handleImported = (result) => {
+    setImportOpen(false);
+    setNotice(`${result.imported} student${result.imported === 1 ? '' : 's'} imported successfully.`);
+    fetchStudentList();
+  };
+
   const isFiltered =
     search ||
     filters.grade ||
@@ -149,9 +158,14 @@ export default function Students() {
         </div>
 
         {can(PERMISSIONS.STUDENT_CREATE) && (
-          <Button variant="primary" size="md" icon={UserPlus} onClick={openCreate}>
-            Add Student
-          </Button>
+          <div className="student-header-actions">
+            <Button variant="secondary" size="md" icon={Upload} onClick={() => setImportOpen(true)}>
+              Bulk Import
+            </Button>
+            <Button variant="primary" size="md" icon={UserPlus} onClick={openCreate}>
+              Add Student
+            </Button>
+          </div>
         )}
       </div>
 
@@ -497,6 +511,7 @@ export default function Students() {
         }}
         onSaved={handleSaved}
       />
+      {importOpen && <StudentImportModal onClose={() => setImportOpen(false)} onImported={handleImported} />}
     </div>
   );
 }

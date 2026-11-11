@@ -9,6 +9,7 @@ import { mockInterventionsList } from '../data/mockInterventionsData.js';
 import { STUDENTS_PAGE_SIZE, STUDENT_STATUS } from '../constants/students.js';
 import { mockUsers } from '../data/mockUsersData.js';
 import { todayISO } from '../utils/formatters.js';
+import { EMPTY_STUDENT_FORM, toStudentPayload, validateStudentForm } from '../utils/studentValidation.js';
 
 /* -------------------------------------------------------------------------- */
 /* Mock helpers                                                               */
@@ -115,6 +116,94 @@ export async function getStudents(filters = {}) {
     page,
     limit,
   };
+}
+
+function importBoolean(value) {
+  if (value === undefined || value === null || value === '') return { value: false };
+  if (typeof value === 'boolean') return { value };
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', 'yes', 'y', '1'].includes(normalized)) return { value: true };
+  if (['false', 'no', 'n', '0'].includes(normalized)) return { value: false };
+  return { error: 'Use true/false, yes/no, or 1/0.' };
+}
+
+export async function previewStudentImport(rows) {
+  if (!USE_MOCKS) {
+    return apiClient('/students/import/preview', { method: 'POST', body: JSON.stringify({ rows }) });
+  }
+
+  await mockDelay(250);
+  const teacherByEmail = new Map(mockUsers.filter((u) => u.role === 'TEACHER' && u.isActive).map((u) => [u.email.toLowerCase(), u]));
+  const preview = rows.map((row, index) => {
+    const errors = [];
+    const barrier = importBoolean(row.financialBarrierReported);
+    if (barrier.error) errors.push({ field: 'financialBarrierReported', message: barrier.error });
+    const email = String(row.classTeacherEmail ?? '').trim().toLowerCase();
+    const teacher = email ? teacherByEmail.get(email) : null;
+    if (email && !teacher) errors.push({ field: 'classTeacherEmail', message: 'No active teacher with this email exists in the school.' });
+    const formValues = {
+      ...EMPTY_STUDENT_FORM,
+      ...row,
+      financialBarrierReported: barrier.value,
+      assignedTeacherId: teacher?.id ?? '',
+    };
+    const validation = validateStudentForm(formValues);
+    Object.entries(validation).forEach(([field, message]) => errors.push({ field, message }));
+    const values = { ...toStudentPayload(formValues), classTeacherEmail: email, classTeacherName: teacher?.name ?? null };
+    return { rowNumber: row.rowNumber || index + 2, values, errors };
+  });
+
+  const codeCounts = new Map();
+  preview.forEach(({ values }) => {
+    const code = String(values.studentCode || '').toUpperCase();
+    if (code) codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
+  });
+  preview.forEach((row) => {
+    const code = String(row.values.studentCode || '').toUpperCase();
+    if (code && mockStudentsList.some((student) => student.studentCode.toUpperCase() === code)) {
+      row.errors.push({ field: 'studentCode', message: 'This code is already used by a student in this school.' });
+    } else if (code && codeCounts.get(code) > 1) {
+      row.errors.push({ field: 'studentCode', message: 'This student code appears more than once in the CSV.' });
+    }
+  });
+
+  return {
+    rows: preview,
+    validCount: preview.filter((row) => row.errors.length === 0).length,
+    errorCount: preview.reduce((sum, row) => sum + row.errors.length, 0),
+  };
+}
+
+export async function importStudentsBulk(rows) {
+  if (!USE_MOCKS) {
+    return apiClient('/students/import', { method: 'POST', body: JSON.stringify({ rows }) });
+  }
+
+  const preview = await previewStudentImport(rows);
+  if (preview.errorCount) {
+    throw new ApiError({ status: 422, code: 'STUDENT_IMPORT_INVALID', message: 'Fix the CSV errors and preview again.' });
+  }
+  const teacherByEmail = new Map(mockUsers.filter((u) => u.role === 'TEACHER' && u.isActive).map((u) => [u.email.toLowerCase(), u]));
+  const created = rows.map((row) => {
+    const teacher = teacherByEmail.get(String(row.classTeacherEmail ?? '').trim().toLowerCase());
+    const payload = toStudentPayload({
+      ...EMPTY_STUDENT_FORM,
+      ...row,
+      financialBarrierReported: importBoolean(row.financialBarrierReported).value,
+      assignedTeacherId: teacher?.id ?? '',
+    });
+    const student = {
+      id: `STU-${Math.floor(2000 + Math.random() * 8000)}`,
+      status: STUDENT_STATUS.ACTIVE,
+      assignedTeacherId: null,
+      assignedTeacherName: null,
+      ...withTeacherName(payload),
+    };
+    mockStudentsList.unshift(student);
+    recalculateMockRisk(student.id);
+    return student;
+  });
+  return { imported: created.length, students: created.map(({ id, studentCode, fullName }) => ({ id, studentCode, fullName })) };
 }
 
 /**

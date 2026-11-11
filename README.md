@@ -13,7 +13,8 @@ so other visitors may have changed its records.
 ## Features
 
 - **Students** — searchable register with enrolment status, guardian contact, support
-  notes and an assigned class teacher; students are never deleted.
+  notes and an assigned class teacher; admins and principals can preview and bulk import
+  up to 50 students from a CSV. Students are never deleted.
 - **Attendance** — daily class register, corrections with who-recorded-what, an
   audited delete, and a school overview with class rates.
 - **Academics** — assessments per class and marks sheets checked against the maximum;
@@ -153,7 +154,7 @@ empty it first), migrated with `npm run db:deploy`:
 
 | Area | Endpoints |
 | --- | --- |
-| Students | `GET/POST /students`, `GET/PATCH /students/:id`, `PATCH /students/:id/status`, `GET /students/:id/summary` |
+| Students | `GET/POST /students`, `GET/PATCH /students/:id`, `PATCH /students/:id/status`, `GET /students/:id/summary`, `POST /students/import/preview`, `POST /students/import` |
 | Attendance | `GET /attendance`, `GET /attendance/overview`, `GET /attendance/register`, `GET /attendance/student/:studentId`, `POST /attendance`, `POST /attendance/bulk`, `PATCH /attendance/:id`, `DELETE /attendance/:id` |
 | Assessments | `GET/POST /assessments`, `GET /assessments/overview`, `GET/PATCH/DELETE /assessments/:id` |
 | Marks | `POST /marks`, `POST /marks/bulk`, `PATCH /marks/:id`, `DELETE /marks/:id` |

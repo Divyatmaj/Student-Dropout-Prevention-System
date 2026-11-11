@@ -37,6 +37,7 @@ const PERMISSION_ROLES = {
 
   // Students
   STUDENT_CREATE: [SCHOOL_ADMIN, PRINCIPAL],
+  STUDENT_IMPORT: [SCHOOL_ADMIN, PRINCIPAL],
   STUDENT_UPDATE: ALL_STAFF, // teachers: guardian contact & support notes only
   STUDENT_EDIT_ENROLMENT: [SCHOOL_ADMIN, PRINCIPAL], // code, grade, section, dates
   STUDENT_CHANGE_STATUS: [SCHOOL_ADMIN],
