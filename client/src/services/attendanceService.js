@@ -1,4 +1,4 @@
-import { summarizeAttendance, ATTENDANCE_STATUSES, ATTENDANCE_THRESHOLDS } from '@udaan/shared';
+import { summarizeAttendance, ATTENDANCE_STATUSES, ATTENDANCE_REASON_CATEGORIES, ATTENDANCE_THRESHOLDS } from '@udaan/shared';
 
 import { apiClient, ApiError, USE_MOCKS, mockDelay, buildQuery } from './api.js';
 import { getMockSessionUser } from './authService.js';
@@ -24,10 +24,11 @@ function validationError(message, field) {
   });
 }
 
-function validateEntry({ studentId, date, status }) {
+function validateEntry({ studentId, date, status, reasonCategory }) {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw validationError('A valid date is required.', 'date');
   if (date > todayISO()) throw validationError('Attendance cannot be recorded for a future date.', 'date');
   if (!ATTENDANCE_STATUSES.includes(status)) throw validationError('Choose Present, Absent, Late or Excused.', 'status');
+  if (reasonCategory && !ATTENDANCE_REASON_CATEGORIES.includes(reasonCategory)) throw validationError('Choose a valid attendance reason.', 'reasonCategory');
 
   const student = mockStudentsList.find((s) => s.id === studentId);
   if (!student) {
@@ -241,16 +242,16 @@ export async function getClassRegister({ date, grade, section = '' }) {
  * record for that date — correct it with `updateAttendance` instead.
  * POST /attendance → AttendanceRecord
  */
-export async function recordAttendance({ studentId, date, status, note = '' }) {
+export async function recordAttendance({ studentId, date, status, reasonCategory = '', note = '' }) {
   if (!USE_MOCKS) {
     return apiClient('/attendance', {
       method: 'POST',
-      body: JSON.stringify({ studentId, date, status, note }),
+      body: JSON.stringify({ studentId, date, status, reasonCategory: reasonCategory || null, note }),
     });
   }
 
   await mockDelay(300);
-  const student = validateEntry({ studentId, date, status });
+  const student = validateEntry({ studentId, date, status, reasonCategory });
   if (mockAttendanceRecords.some((r) => r.studentId === studentId && r.date === date)) {
     throw new ApiError({
       status: 409,
@@ -259,7 +260,7 @@ export async function recordAttendance({ studentId, date, status, note = '' }) {
     });
   }
 
-  const record = { id: nextMockAttendanceId(), studentId, date, status, note: note.trim(), ...currentRecorder() };
+  const record = { id: nextMockAttendanceId(), studentId, date, status, reasonCategory: reasonCategory || null, note: note.trim(), ...currentRecorder() };
   mockAttendanceRecords.push(record);
   recalculateMockRisk(studentId);
   return withStudent(record);
@@ -281,16 +282,17 @@ export async function saveClassAttendance({ date, entries }) {
   let created = 0;
   let updated = 0;
   const recorder = currentRecorder();
-  const saved = entries.map(({ studentId, status, note = '' }) => {
+  const saved = entries.map(({ studentId, status, reasonCategory = '', note = '' }) => {
     const existing = mockAttendanceRecords.find((r) => r.studentId === studentId && r.date === date);
     if (existing) {
-      if (existing.status !== status || existing.note !== note.trim()) {
-        Object.assign(existing, { status, note: note.trim() });
+      const normalizedReason = reasonCategory || null;
+      if (existing.status !== status || (existing.reasonCategory || null) !== normalizedReason || existing.note !== note.trim()) {
+        Object.assign(existing, { status, reasonCategory: normalizedReason, note: note.trim() });
         updated += 1;
       }
       return withStudent(existing);
     }
-    const record = { id: nextMockAttendanceId(), studentId, date, status, note: note.trim(), ...recorder };
+    const record = { id: nextMockAttendanceId(), studentId, date, status, reasonCategory: reasonCategory || null, note: note.trim(), ...recorder };
     mockAttendanceRecords.push(record);
     created += 1;
     return withStudent(record);
@@ -304,9 +306,9 @@ export async function saveClassAttendance({ date, entries }) {
  * Correct an attendance entry.
  * PATCH /attendance/:id → AttendanceRecord
  */
-export async function updateAttendance(id, { status, note }) {
+export async function updateAttendance(id, { status, reasonCategory, note }) {
   if (!USE_MOCKS) {
-    return apiClient(`/attendance/${id}`, { method: 'PATCH', body: JSON.stringify({ status, note }) });
+    return apiClient(`/attendance/${id}`, { method: 'PATCH', body: JSON.stringify({ status, reasonCategory, note }) });
   }
 
   await mockDelay(300);
@@ -314,7 +316,11 @@ export async function updateAttendance(id, { status, note }) {
   if (status !== undefined && !ATTENDANCE_STATUSES.includes(status)) {
     throw validationError('Choose Present, Absent, Late or Excused.', 'status');
   }
+  if (reasonCategory !== undefined && reasonCategory !== null && !ATTENDANCE_REASON_CATEGORIES.includes(reasonCategory)) {
+    throw validationError('Choose a valid attendance reason.', 'reasonCategory');
+  }
   if (status !== undefined) record.status = status;
+  if (reasonCategory !== undefined) record.reasonCategory = reasonCategory || null;
   if (note !== undefined) record.note = note.trim();
   recalculateMockRisk(record.studentId);
   return withStudent(record);

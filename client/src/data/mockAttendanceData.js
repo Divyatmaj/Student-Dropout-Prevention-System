@@ -3,7 +3,7 @@
  *
  * One record per student per school day — the same shape as the Udaan API's
  * `Attendance` resource:
- *   { id, studentId, date: 'YYYY-MM-DD', status, note, recordedById, recordedByName }
+ *   { id, studentId, date: 'YYYY-MM-DD', status, reasonCategory, note, recordedById, recordedByName }
  *
  * Contract:
  *   GET    /attendance?date=&from=&to=&grade=&section=&status=&search=
@@ -11,10 +11,10 @@
  *   GET    /attendance/overview?from=&to=   → see attendanceService.getAttendanceOverview
  *   GET    /attendance/register?date=&grade=&section=
  *          → { date, students: [{ student, record | null }] }
- *   POST   /attendance            body { studentId, date, status, note }  (409 on duplicate)
- *   POST   /attendance/bulk       body { date, entries: [{ studentId, status, note }] }
+ *   POST   /attendance            body { studentId, date, status, reasonCategory?, note }  (409 on duplicate)
+ *   POST   /attendance/bulk       body { date, entries: [{ studentId, status, reasonCategory?, note }] }
  *          → { created, updated, records }  (upsert per student + date)
- *   PATCH  /attendance/:id        body { status?, note? }
+ *   PATCH  /attendance/:id        body { status?, reasonCategory?, note? }
  *   DELETE /attendance/:id        body { reason }   (school admin only)
  *
  * The records are generated so each student's attendance % matches the
@@ -97,6 +97,7 @@ function generateRecords() {
         studentId: student.id,
         date,
         status,
+        reasonCategory: null,
         note,
         recordedById,
         recordedByName: RECORDERS[recordedById],
@@ -122,8 +123,12 @@ function generateRecords() {
   const excused = records.find((r) => r.studentId === 'STU-1011' && r.date === '2026-10-15');
   if (excused) {
     excused.status = 'EXCUSED';
+    excused.reasonCategory = 'ILLNESS';
     excused.note = 'Medical certificate received';
   }
+
+  const transportAbsence = records.find((r) => r.studentId === 'STU-1042' && r.status === 'ABSENT');
+  if (transportAbsence) transportAbsence.reasonCategory = 'TRANSPORT';
 
   return records;
 }

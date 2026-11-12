@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Pencil, Trash2, RotateCcw, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, Download } from 'lucide-react';
-import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABELS } from '@udaan/shared';
+import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABELS, ATTENDANCE_REASON_CATEGORIES, ATTENDANCE_REASON_LABELS } from '@udaan/shared';
 
 import SearchBar from '../common/SearchBar.jsx';
 import Badge from '../common/Badge.jsx';
@@ -38,6 +38,7 @@ function downloadAttendanceCsv(records) {
     ['Student Code', (record) => record.studentCode],
     ['Class', (record) => formatClass(record.grade, record.section)],
     ['Status', (record) => ATTENDANCE_STATUS_LABELS[record.status] || record.status],
+    ['Reason', (record) => ATTENDANCE_REASON_LABELS[record.reasonCategory] || ''],
     ['Note', (record) => record.note],
     ['Recorded By', (record) => record.recordedByName],
   ];
@@ -224,6 +225,7 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
                   <th>Student</th>
                   <th>Class</th>
                   <th>Status</th>
+                  <th>Reason</th>
                   <th>Note</th>
                   <th>Recorded by</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
@@ -241,6 +243,7 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
                     </td>
                     <td style={{ fontSize: '12px' }}>{formatClass(rec.grade, rec.section)}</td>
                     <td><Badge type="attendance" value={rec.status} /></td>
+                    <td style={{ fontSize: '12px' }}>{ATTENDANCE_REASON_LABELS[rec.reasonCategory] || '—'}</td>
                     <td style={{ fontSize: '12px', color: 'var(--color-text-secondary)', maxWidth: '220px' }}>{rec.note || '—'}</td>
                     <td style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{rec.recordedByName || '—'}</td>
                     <td style={{ textAlign: 'right' }}>
@@ -295,6 +298,7 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
 
 function CorrectAttendanceModal({ record, onClose, onSaved }) {
   const [status, setStatus] = useState(record.status);
+  const [reasonCategory, setReasonCategory] = useState(record.reasonCategory || '');
   const [note, setNote] = useState(record.note || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -304,7 +308,7 @@ function CorrectAttendanceModal({ record, onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
-      onSaved(await updateAttendance(record.id, { status, note }));
+      onSaved(await updateAttendance(record.id, { status, reasonCategory: reasonCategory || null, note }));
     } catch (err) {
       setError(err.message || 'Could not update this entry.');
     } finally {
@@ -312,14 +316,14 @@ function CorrectAttendanceModal({ record, onClose, onSaved }) {
     }
   };
 
-  const unchanged = status === record.status && note.trim() === (record.note || '');
+  const unchanged = status === record.status && reasonCategory === (record.reasonCategory || '') && note.trim() === (record.note || '');
 
   return (
     <Modal
       isOpen
       onClose={onClose}
       closeDisabled={saving}
-      hasUnsavedChanges={status !== record.status || note.trim() !== (record.note || '')}
+      hasUnsavedChanges={status !== record.status || reasonCategory !== (record.reasonCategory || '') || note.trim() !== (record.note || '')}
       title="Correct Attendance"
       footer={
         <>
@@ -344,11 +348,18 @@ function CorrectAttendanceModal({ record, onClose, onSaved }) {
           <span className="form-label" id="correct-status-label">Status</span>
           <div className="status-toggle" role="group" aria-labelledby="correct-status-label">
             {ATTENDANCE_STATUSES.map((s) => (
-              <button key={s} type="button" data-status={s} aria-pressed={status === s} onClick={() => setStatus(s)} disabled={saving}>
+              <button key={s} type="button" data-status={s} aria-pressed={status === s} onClick={() => { setStatus(s); if (s === 'PRESENT') setReasonCategory(''); }} disabled={saving}>
                 {ATTENDANCE_STATUS_LABELS[s]}
               </button>
             ))}
           </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label" htmlFor="correct-reason">Reason category</label>
+          <select id="correct-reason" className="form-select" value={reasonCategory} onChange={(e) => setReasonCategory(e.target.value)} disabled={saving || status === 'PRESENT'}>
+            <option value="">No reason selected</option>
+            {ATTENDANCE_REASON_CATEGORIES.map((reason) => <option key={reason} value={reason}>{ATTENDANCE_REASON_LABELS[reason]}</option>)}
+          </select>
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="correct-note">Note</label>

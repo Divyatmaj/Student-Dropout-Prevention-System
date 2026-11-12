@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ATTENDANCE_STATUSES, GRADES, SECTIONS } from '@udaan/shared';
+import { ATTENDANCE_STATUSES, ATTENDANCE_REASON_CATEGORIES, GRADES, SECTIONS } from '@udaan/shared';
 
 import { nullableText, optionalQueryString, optionalQueryEnum, pageQuery } from './common.js';
 import { isValidIsoDate } from '../utils/dates.js';
@@ -10,26 +10,28 @@ export const isoDate = (field = 'date') =>
 const optionalIsoDate = z.preprocess((v) => (v === '' ? undefined : v), isoDate().optional());
 
 const status = z.enum(ATTENDANCE_STATUSES, { error: 'Choose Present, Absent, Late or Excused.' });
+const reasonCategory = z.enum(ATTENDANCE_REASON_CATEGORIES, { error: 'Choose a valid attendance reason.' }).nullable();
 const note = nullableText(500, 'Keep the note under 500 characters.');
 
 export const recordAttendanceSchema = z.object({
   studentId: z.uuid('Choose a student.'),
   date: isoDate(),
   status,
+  reasonCategory: reasonCategory.optional(),
   note: note.optional(),
 });
 
 export const bulkAttendanceSchema = z.object({
   date: isoDate(),
   entries: z
-    .array(z.object({ studentId: z.uuid('Not a valid student.'), status, note: note.optional() }))
+    .array(z.object({ studentId: z.uuid('Not a valid student.'), status, reasonCategory: reasonCategory.optional(), note: note.optional() }))
     .min(1, 'Mark at least one student.')
     .max(200, 'Save at most 200 students at once.'),
 });
 
 export const updateAttendanceSchema = z
-  .object({ status: status.optional(), note: note.optional() })
-  .refine((v) => v.status !== undefined || v.note !== undefined, { message: 'Nothing to update.' });
+  .object({ status: status.optional(), reasonCategory: reasonCategory.optional(), note: note.optional() })
+  .refine((v) => v.status !== undefined || v.reasonCategory !== undefined || v.note !== undefined, { message: 'Nothing to update.' });
 
 export const deleteAttendanceSchema = z.object({
   reason: z.string({ error: 'Give a short reason (at least 5 characters).' }).trim().min(5, 'Give a short reason (at least 5 characters).').max(500),

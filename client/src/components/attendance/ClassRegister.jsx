@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Info, Save, CheckCheck, Undo2, Users } from 'lucide-react';
-import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABELS } from '@udaan/shared';
+import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_LABELS, ATTENDANCE_REASON_CATEGORIES, ATTENDANCE_REASON_LABELS } from '@udaan/shared';
 
 import Button from '../common/Button.jsx';
 import LoadingState from '../common/LoadingState.jsx';
@@ -54,6 +54,7 @@ export default function ClassRegister({ onSaved }) {
           student,
           record,
           status: record?.status ?? '',
+          reasonCategory: record?.reasonCategory ?? '',
           note: record?.note ?? '',
         }))
       );
@@ -75,7 +76,7 @@ export default function ClassRegister({ onSaved }) {
   }, [notice]);
 
   const isChanged = (row) =>
-    row.status !== '' && (row.status !== (row.record?.status ?? '') || row.note.trim() !== (row.record?.note ?? ''));
+    row.status !== '' && (row.status !== (row.record?.status ?? '') || row.reasonCategory !== (row.record?.reasonCategory ?? '') || row.note.trim() !== (row.record?.note ?? ''));
 
   const changedRows = rows.filter(isChanged);
   const dirty = changedRows.length > 0;
@@ -101,7 +102,7 @@ export default function ClassRegister({ onSaved }) {
   const discardChanges = () => {
     setSaveError('');
     setRows((prev) =>
-      prev.map((row) => ({ ...row, status: row.record?.status ?? '', note: row.record?.note ?? '' }))
+      prev.map((row) => ({ ...row, status: row.record?.status ?? '', reasonCategory: row.record?.reasonCategory ?? '', note: row.record?.note ?? '' }))
     );
   };
 
@@ -114,6 +115,7 @@ export default function ClassRegister({ onSaved }) {
         entries: changedRows.map((row) => ({
           studentId: row.student.id,
           status: row.status,
+          reasonCategory: row.reasonCategory || null,
           note: row.note.trim(),
         })),
       });
@@ -239,6 +241,7 @@ export default function ClassRegister({ onSaved }) {
                 <tr>
                   <th>Student</th>
                   <th>Status</th>
+                  <th>Reason</th>
                   <th>Note</th>
                 </tr>
               </thead>
@@ -282,12 +285,25 @@ export default function ClassRegister({ onSaved }) {
                               data-status={status}
                               aria-pressed={row.status === status}
                               disabled={locked || saving}
-                              onClick={() => updateRow(row.student.id, { status })}
+                              onClick={() => updateRow(row.student.id, { status, ...(status === 'PRESENT' && { reasonCategory: '' }) })}
                             >
                               {ATTENDANCE_STATUS_LABELS[status]}
                             </button>
                           ))}
                         </div>
+                      </td>
+                      <td style={{ minWidth: '160px' }}>
+                        <select
+                          className="form-select"
+                          value={row.reasonCategory}
+                          aria-label={`Reason for ${row.student.fullName}`}
+                          disabled={locked || saving || !row.status || row.status === 'PRESENT'}
+                          onChange={(e) => updateRow(row.student.id, { reasonCategory: e.target.value })}
+                          style={{ padding: '6px 10px' }}
+                        >
+                          <option value="">No reason selected</option>
+                          {ATTENDANCE_REASON_CATEGORIES.map((reason) => <option key={reason} value={reason}>{ATTENDANCE_REASON_LABELS[reason]}</option>)}
+                        </select>
                       </td>
                       <td style={{ minWidth: '180px' }}>
                         <input

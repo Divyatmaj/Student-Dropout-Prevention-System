@@ -16,8 +16,9 @@ so other visitors may have changed its records.
   notes, student strengths and interests, and an assigned class teacher; admins and
   principals can preview and bulk import up to 50 students from a CSV. Students are
   never deleted.
-- **Attendance** — daily class register, corrections with who-recorded-what, an
-  audited delete, and a school overview with class rates.
+- **Attendance** — daily class register with reason categories for absences and
+  late arrivals, corrections with who-recorded-what, an audited delete, and a
+  school overview with class rates.
 - **Academics** — assessments per class and marks sheets checked against the maximum;
   same-subject drops are highlighted.
 - **Risk indicator** — a transparent 0–100 rule-based score with its reasons, data

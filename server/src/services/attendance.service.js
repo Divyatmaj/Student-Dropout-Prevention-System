@@ -29,6 +29,7 @@ export function toAttendanceRecord(r) {
     studentId: r.studentId,
     date: fromDbDate(r.date),
     status: r.status,
+    reasonCategory: r.reasonCategory ?? null,
     note: r.note ?? '',
     recordedById: r.recordedById,
     recordedByName: r.recordedBy?.name ?? null,
@@ -192,7 +193,7 @@ export async function getRegister(user, { date, grade, section }) {
 }
 
 /** POST /attendance — one entry; 409 if the student already has one for that date. */
-export async function recordAttendance(user, { studentId, date, status, note }) {
+export async function recordAttendance(user, { studentId, date, status, reasonCategory, note }) {
   assertNotFuture(date);
   const student = await findStudentInScope(user, studentId, { select: { id: true, fullName: true, status: true } });
   if (student.status !== 'ACTIVE') {
@@ -208,7 +209,7 @@ export async function recordAttendance(user, { studentId, date, status, note }) 
     });
   }
   const record = await db.attendance.create({
-    data: { schoolId: user.schoolId, studentId, date: toDbDate(date), status, note: note || null, recordedById: user.id },
+    data: { schoolId: user.schoolId, studentId, date: toDbDate(date), status, reasonCategory: reasonCategory || null, note: note || null, recordedById: user.id },
     include: RECORD_INCLUDE,
   });
   await recalculateStudentRisk(studentId);
@@ -252,19 +253,19 @@ export async function saveRegister(user, { date, entries }) {
     const note = e.note || null;
     const current = existingByStudent.get(e.studentId);
     if (!current) toCreate.push({ ...e, note });
-    else if (current.status !== e.status || (current.note || null) !== note) {
+    else if (current.status !== e.status || (current.reasonCategory || null) !== (e.reasonCategory || null) || (current.note || null) !== note) {
       if (!canCorrectAttendance(user, current)) throw cannotCorrect(current);
-      toUpdate.push({ id: current.id, status: e.status, note });
+      toUpdate.push({ id: current.id, status: e.status, reasonCategory: e.reasonCategory || null, note });
     }
   }
 
   await db.$transaction([
     ...toCreate.map((e) =>
       db.attendance.create({
-        data: { schoolId: user.schoolId, studentId: e.studentId, date: toDbDate(date), status: e.status, note: e.note, recordedById: user.id },
+        data: { schoolId: user.schoolId, studentId: e.studentId, date: toDbDate(date), status: e.status, reasonCategory: e.reasonCategory || null, note: e.note, recordedById: user.id },
       })
     ),
-    ...toUpdate.map((u) => db.attendance.update({ where: { id: u.id }, data: { status: u.status, note: u.note } })),
+    ...toUpdate.map((u) => db.attendance.update({ where: { id: u.id }, data: { status: u.status, reasonCategory: u.reasonCategory, note: u.note } })),
   ]);
   await recalculateMany(ids);
 
@@ -277,12 +278,12 @@ export async function saveRegister(user, { date, entries }) {
 }
 
 /** PATCH /attendance/:id — correct status or note. */
-export async function updateRecord(user, id, { status, note }) {
+export async function updateRecord(user, id, { status, reasonCategory, note }) {
   const record = await findRecordInScope(user, id);
   if (!canCorrectAttendance(user, record)) throw cannotCorrect(record);
   const updated = await getPrisma().attendance.update({
     where: { id },
-    data: { ...(status !== undefined && { status }), ...(note !== undefined && { note: note || null }) },
+    data: { ...(status !== undefined && { status }), ...(reasonCategory !== undefined && { reasonCategory: reasonCategory || null }), ...(note !== undefined && { note: note || null }) },
     include: RECORD_INCLUDE,
   });
   await recalculateStudentRisk(record.studentId);

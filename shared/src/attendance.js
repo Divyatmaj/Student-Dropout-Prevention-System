@@ -14,6 +14,22 @@
 
 export const ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'];
 
+export const ATTENDANCE_REASON_CATEGORIES = [
+  'ILLNESS',
+  'TRANSPORT',
+  'FAMILY_EMERGENCY',
+  'APPOINTMENT',
+  'OTHER',
+];
+
+export const ATTENDANCE_REASON_LABELS = {
+  ILLNESS: 'Illness',
+  TRANSPORT: 'Transport',
+  FAMILY_EMERGENCY: 'Family emergency',
+  APPOINTMENT: 'Appointment',
+  OTHER: 'Other',
+};
+
 export const ATTENDANCE_STATUS_LABELS = {
   PRESENT: 'Present',
   ABSENT: 'Absent',

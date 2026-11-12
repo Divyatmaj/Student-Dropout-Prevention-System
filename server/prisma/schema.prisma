@@ -43,6 +43,14 @@ enum AttendanceStatus {
   EXCUSED
 }
 
+enum AttendanceReasonCategory {
+  ILLNESS
+  TRANSPORT
+  FAMILY_EMERGENCY
+  APPOINTMENT
+  OTHER
+}
+
 enum RiskCategory {
   LOW
   MEDIUM
@@ -187,6 +195,7 @@ model Attendance {
   studentId    String           @db.Uuid
   date         DateTime         @db.Date
   status       AttendanceStatus
+  reasonCategory AttendanceReasonCategory?
   note         String?
   recordedById String           @db.Uuid
   createdAt    DateTime         @default(now())
