@@ -132,7 +132,7 @@ model User {
   interventionsAssigned Intervention[]      @relation("InterventionOwner")
   interventionsCreated  Intervention[]      @relation("InterventionCreator")
   interventionEvents    InterventionEvent[]
-  parentMeetingsCreated ParentMeetingLog[]
+  parentMeetingsCreated ParentMeetingLog[]  @relation("ParentMeetingCreator")
   auditLogs             AuditLog[]
 
   @@index([schoolId, role])
