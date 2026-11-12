@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Menu, Bell } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
 const routeTitleMap = {
@@ -53,15 +53,6 @@ export default function Navbar({ onToggleSidebar }) {
           <span className="institution-pill-dot" />
           <span>{user?.schoolName}</span>
         </div>
-
-        <button
-          className="icon-button"
-          aria-label="Institutional notifications"
-          title="Notifications"
-        >
-          <Bell size={18} />
-          <span className="notification-dot" />
-        </button>
       </div>
     </header>
   );
