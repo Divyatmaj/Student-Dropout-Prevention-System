@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertCircle, Lock } from 'lucide-react';
 
 import Modal, { ModalCloseButton } from '../common/Modal.jsx';
 import Button from '../common/Button.jsx';
-import { createStudent, updateStudent } from '../../services/studentService.js';
+import { createStudent, findPossibleDuplicateStudents, updateStudent } from '../../services/studentService.js';
 import { getAssignableStaff } from '../../services/staffService.js';
 import { STUDENT_ENROLMENT_FIELDS } from '@udaan/shared';
 import { useAuth } from '../../hooks/useAuth.js';
@@ -50,6 +51,7 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
   const [submitting, setSubmitting] = useState(false);
   const [teachers, setTeachers] = useState([]);
   const [teachersError, setTeachersError] = useState('');
+  const [duplicateMatches, setDuplicateMatches] = useState(null);
 
   // Class teacher options (teachers see only students assigned to them).
   useEffect(() => {
@@ -64,6 +66,7 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
   }, [canEditEnrolment]);
 
   const setField = (field, value) => {
+    setDuplicateMatches(null);
     const next = { ...values, [field]: value };
     setValues(next);
     if (touched[field] || errors[field]) {
@@ -100,6 +103,13 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
 
     setSubmitting(true);
     try {
+      if (!isEdit && duplicateMatches === null) {
+        const { matches } = await findPossibleDuplicateStudents(payload);
+        if (matches.length) {
+          setDuplicateMatches(matches);
+          return;
+        }
+      }
       const saved = isEdit ? await updateStudent(student.id, payload) : await createStudent(payload);
       onSaved?.(saved);
     } catch (err) {
@@ -144,7 +154,7 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
             Cancel
           </ModalCloseButton>
           <Button variant="primary" size="md" type="submit" form={FORM_ID} disabled={submitting}>
-            {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Student'}
+            {submitting ? 'Saving...' : isEdit ? 'Save Changes' : duplicateMatches?.length ? 'Add Anyway' : 'Add Student'}
           </Button>
         </>
       }
@@ -159,6 +169,28 @@ function StudentFormDialog({ student = null, onClose, onSaved }) {
           <div className="alert alert-error" role="alert" aria-live="assertive">
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{formError}</span>
+          </div>
+        )}
+
+        {duplicateMatches?.length > 0 && (
+          <div className="alert alert-warning" role="status">
+            <div>
+              <strong>Possible duplicate student</strong>
+              <p>Some existing profiles have a similar name or matching guardian details. Check them before adding this student.</p>
+              <ul style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
+                {duplicateMatches.map((match) => (
+                  <li key={match.id} style={{ marginTop: '6px' }}>
+                    <Link to={`/students/${match.id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
+                      {match.fullName} ({match.studentCode})
+                    </Link>
+                    {' · '}Grade {match.grade}{match.section ? `, Section ${match.section}` : ''}
+                    {match.guardianName ? ` · Guardian: ${match.guardianName}` : ''}
+                    <div>{match.reason}</div>
+                  </li>
+                ))}
+              </ul>
+              <p style={{ marginBottom: 0 }}>If these are different students, choose <strong>Add Anyway</strong> to continue.</p>
+            </div>
           </div>
         )}
 

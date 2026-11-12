@@ -775,6 +775,11 @@ textarea.form-input {
   color: #075985;
 }
 
+.alert-warning {
+  background-color: var(--color-risk-medium-subtle);
+  color: #9a3412;
+}
+
 .form-helper {
   font-size: 11px;
   color: var(--color-text-secondary);

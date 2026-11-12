@@ -291,6 +291,46 @@ export async function createStudent(payload) {
   return withComputedFields(student);
 }
 
+/** Find possible duplicate profiles before creating a new student. */
+export async function findPossibleDuplicateStudents(payload) {
+  if (!USE_MOCKS) {
+    return apiClient('/students/duplicate-check', {
+      method: 'POST',
+      body: JSON.stringify({ fullName: payload.fullName, guardianName: payload.guardianName, guardianPhone: payload.guardianPhone }),
+    });
+  }
+
+  await mockDelay(200);
+  const normalize = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+  const name = normalize(payload.fullName);
+  const guardianName = normalize(payload.guardianName);
+  const guardianPhone = String(payload.guardianPhone ?? '').replace(/\D/g, '');
+  const matches = mockStudentsList.filter((student) => {
+    const sameName = normalize(student.fullName) === name;
+    const sameGuardian = (guardianName && normalize(student.guardianName) === guardianName)
+      || (guardianPhone && String(student.guardianPhone ?? '').replace(/\D/g, '') === guardianPhone);
+    return sameName || Boolean(sameGuardian && normalize(student.fullName).includes(name.split(' ')[0]));
+  }).slice(0, 5).map((student) => {
+    const sameName = normalize(student.fullName) === name;
+    const sameGuardian = (guardianName && normalize(student.guardianName) === guardianName)
+      || (guardianPhone && String(student.guardianPhone ?? '').replace(/\D/g, '') === guardianPhone);
+    return {
+      id: student.id,
+      studentCode: student.studentCode,
+      fullName: student.fullName,
+      grade: student.grade,
+      section: student.section,
+      guardianName: student.guardianName,
+      reason: sameName && sameGuardian
+        ? 'Student name and guardian details match.'
+        : sameName
+          ? 'Student name matches an existing profile.'
+          : 'Guardian details match and the student names are similar.',
+    };
+  });
+  return { matches };
+}
+
 /**
  * Update a student's details.
  * PATCH /students/:id → Student

@@ -13,9 +13,9 @@ so other visitors may have changed its records.
 ## Features
 
 - **Students** — searchable register with enrolment status, guardian contact, support
-  notes, student strengths and interests, and an assigned class teacher; admins and
-  principals can preview and bulk import up to 50 students from a CSV. Students are
-  never deleted.
+  notes, student strengths and interests, duplicate profile warnings, and an assigned
+  class teacher; admins and principals can preview and bulk import up to 50 students
+  from a CSV. Students are never deleted.
 - **Attendance** — daily class register with reason categories for absences and
   late arrivals, corrections with who-recorded-what, an audited delete, and a
   school overview with class rates.
