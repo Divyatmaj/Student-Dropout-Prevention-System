@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Menu, Bell } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
@@ -21,6 +21,15 @@ export default function Navbar({ onToggleSidebar }) {
   const currentTitle =
     routeTitleMap[location.pathname] ||
     (location.pathname.startsWith('/students/') ? 'Student Profile & Details' : 'Udaan Portal');
+
+  // Name the browser tab after the current page; restore the default on sign-out.
+  useEffect(() => {
+    const defaultTitle = document.title;
+    document.title = `${currentTitle} · Udaan`;
+    return () => {
+      document.title = defaultTitle;
+    };
+  }, [currentTitle]);
 
   return (
     <header className="navbar">
