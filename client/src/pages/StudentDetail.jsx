@@ -17,6 +17,8 @@ import {
   X,
   ClipboardCheck,
   RefreshCw,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 import Badge from '../components/common/Badge.jsx';
@@ -88,6 +90,18 @@ export default function StudentDetail() {
   const [notice, setNotice] = useState('');
   const [reviewOpen, setReviewOpen] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const handleCopyCode = async (code) => {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch {
+      // Fallback if clipboard permission is denied
+    }
+  };
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -230,7 +244,33 @@ export default function StudentDetail() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px 16px', marginTop: '6px', fontSize: '13px', color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
-              <span><strong>Code:</strong> {student.studentCode}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <strong>Code:</strong> {student.studentCode}
+                <button
+                  type="button"
+                  onClick={() => handleCopyCode(student.studentCode)}
+                  title={copiedCode ? 'Copied to clipboard' : 'Copy student code'}
+                  aria-label={copiedCode ? 'Student code copied' : `Copy student code ${student.studentCode}`}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '2px 4px',
+                    cursor: 'pointer',
+                    color: copiedCode ? 'var(--color-risk-low)' : 'var(--color-text-secondary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    borderRadius: 'var(--radius-sm)',
+                    verticalAlign: 'middle',
+                  }}
+                >
+                  {copiedCode ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+                  {copiedCode && (
+                    <span style={{ fontSize: '11px', fontWeight: 600, marginLeft: '2px' }}>
+                      Copied
+                    </span>
+                  )}
+                </button>
+              </span>
               <span><strong>Class:</strong> {formatClass(student.grade, student.section)}</span>
               <span><strong>Admitted:</strong> {formatDate(student.admissionDate)}</span>
               {student.assignedTeacherName && (
