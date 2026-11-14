@@ -4,29 +4,30 @@ import { STUDENT_STATUS_LABELS } from '../../constants/students.js';
 import { DATA_STATUS_LABELS } from '../../constants/risk.js';
 import { INTERVENTION_STATUS_LABELS, INTERVENTION_PRIORITY_LABELS } from '../../constants/interventions.js';
 
-export default function Badge({ type = 'risk', value, children }) {
+export default function Badge({ type = 'risk', value, children, className = '', style = {} }) {
   const normalized = (value || children || '').toString().toLowerCase().replace(/\s+/g, '_');
+  const baseClass = (extra) => `badge ${extra} ${className}`.trim();
 
   if (type === 'risk') {
     let icon = null;
     let label = value || children;
 
     if (normalized === 'high') {
-      icon = <AlertTriangle size={12} />;
+      icon = <AlertTriangle size={12} aria-hidden="true" />;
       label = 'High Risk';
     } else if (normalized === 'medium') {
-      icon = <Clock size={12} />;
+      icon = <Clock size={12} aria-hidden="true" />;
       label = 'Medium Risk';
     } else if (normalized === 'low') {
-      icon = <CheckCircle2 size={12} />;
+      icon = <CheckCircle2 size={12} aria-hidden="true" />;
       label = 'Low Risk';
     } else if (normalized === 'insufficient_data') {
-      icon = <HelpCircle size={12} />;
+      icon = <HelpCircle size={12} aria-hidden="true" />;
       label = 'Insufficient Data';
     }
 
     return (
-      <span className={`badge badge-risk-${normalized}`}>
+      <span className={baseClass(`badge-risk-${normalized}`)} style={style}>
         {icon}
         <span>{label}</span>
       </span>
@@ -38,21 +39,21 @@ export default function Badge({ type = 'risk', value, children }) {
     let label = value || children;
 
     if (normalized === 'present') {
-      icon = <CheckCircle2 size={12} />;
+      icon = <CheckCircle2 size={12} aria-hidden="true" />;
       label = 'Present';
     } else if (normalized === 'absent') {
-      icon = <XCircle size={12} />;
+      icon = <XCircle size={12} aria-hidden="true" />;
       label = 'Absent';
     } else if (normalized === 'late') {
-      icon = <Clock size={12} />;
+      icon = <Clock size={12} aria-hidden="true" />;
       label = 'Late';
     } else if (normalized === 'excused') {
-      icon = <FileText size={12} />;
+      icon = <FileText size={12} aria-hidden="true" />;
       label = 'Excused';
     }
 
     return (
-      <span className={`badge badge-attendance-${normalized}`}>
+      <span className={baseClass(`badge-attendance-${normalized}`)} style={style}>
         {icon}
         <span>{label}</span>
       </span>
@@ -61,7 +62,7 @@ export default function Badge({ type = 'risk', value, children }) {
 
   if (type === 'dataStatus') {
     return (
-      <span className={`badge badge-data-${normalized}`} title="How complete the data behind this score is">
+      <span className={baseClass(`badge-data-${normalized}`)} title="How complete the data behind this score is" style={style}>
         {DATA_STATUS_LABELS[(value || '').toUpperCase()] || value}
       </span>
     );
@@ -69,7 +70,7 @@ export default function Badge({ type = 'risk', value, children }) {
 
   if (type === 'studentStatus') {
     return (
-      <span className={`badge badge-student-${normalized}`}>
+      <span className={baseClass(`badge-student-${normalized}`)} style={style}>
         {STUDENT_STATUS_LABELS[(value || '').toUpperCase()] || value}
       </span>
     );
@@ -78,7 +79,7 @@ export default function Badge({ type = 'risk', value, children }) {
   // Intervention status: OPEN | IN_PROGRESS | COMPLETED | CANCELLED
   if (type === 'status') {
     return (
-      <span className={`badge badge-status-${normalized}`}>
+      <span className={baseClass(`badge-status-${normalized}`)} style={style}>
         {children || INTERVENTION_STATUS_LABELS[(value || '').toUpperCase()] || value}
       </span>
     );
@@ -87,7 +88,7 @@ export default function Badge({ type = 'risk', value, children }) {
   // Intervention priority: LOW | MEDIUM | HIGH
   if (type === 'priority') {
     return (
-      <span className={`badge badge-priority-${normalized}`}>
+      <span className={baseClass(`badge-priority-${normalized}`)} style={style}>
         {children || `${INTERVENTION_PRIORITY_LABELS[(value || '').toUpperCase()] || value} priority`}
       </span>
     );
@@ -95,8 +96,8 @@ export default function Badge({ type = 'risk', value, children }) {
 
   if (type === 'overdue') {
     return (
-      <span className="badge badge-overdue">
-        <AlertTriangle size={12} />
+      <span className={baseClass('badge-overdue')} style={style}>
+        <AlertTriangle size={12} aria-hidden="true" />
         <span>{children || 'Overdue'}</span>
       </span>
     );
@@ -105,8 +106,8 @@ export default function Badge({ type = 'risk', value, children }) {
   if (type === 'result' || type === 'assessment') {
     const isPass = normalized === 'pass';
     return (
-      <span className={`badge ${isPass ? 'badge-risk-low' : 'badge-risk-high'}`}>
-        {isPass ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+      <span className={baseClass(isPass ? 'badge-risk-low' : 'badge-risk-high')} style={style}>
+        {isPass ? <CheckCircle2 size={12} aria-hidden="true" /> : <XCircle size={12} aria-hidden="true" />}
         <span>{isPass ? 'Pass' : 'Fail'}</span>
       </span>
     );
@@ -118,11 +119,11 @@ export default function Badge({ type = 'risk', value, children }) {
     if (normalized === 'moderate') diffClass = 'badge-risk-medium';
 
     return (
-      <span className={`badge ${diffClass}`}>
+      <span className={baseClass(diffClass)} style={style}>
         <span>{children || value}</span>
       </span>
     );
   }
 
-  return <span className="badge">{children || value}</span>;
+  return <span className={baseClass('')} style={style}>{children || value}</span>;
 }
