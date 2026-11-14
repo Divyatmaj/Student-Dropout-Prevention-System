@@ -175,6 +175,7 @@ export default function Dashboard() {
               value={overview.activeStudents}
               icon={Users}
               subtitle={isTeacher ? 'currently enrolled' : 'enrolled and attending'}
+              to="/students"
             />
             <StatCard
               title="Attendance Rate"
@@ -183,6 +184,7 @@ export default function Dashboard() {
               iconColor={attendanceTone(overview.attendance.rate)}
               iconBg="var(--color-bg-muted)"
               subtitle={`${overview.attendance.studentsBelow75} student${overview.attendance.studentsBelow75 === 1 ? '' : 's'} below 75%`}
+              to="/attendance"
             />
             <StatCard
               title="High Risk"
@@ -191,6 +193,7 @@ export default function Dashboard() {
               iconColor="var(--color-risk-high)"
               iconBg="var(--color-risk-high-subtle)"
               subtitle={`${overview.risk.counts.MEDIUM} medium · ${overview.risk.awaitingReview} awaiting review`}
+              to="/risk?category=HIGH"
             />
             <StatCard
               title="Open Interventions"
@@ -199,6 +202,7 @@ export default function Dashboard() {
               iconColor="var(--color-primary)"
               iconBg="var(--color-primary-subtle)"
               subtitle={`${overview.interventions.inProgress} in progress · ${overview.interventions.dueThisWeek} due this week`}
+              to="/interventions"
             />
             <StatCard
               title="Overdue Follow-ups"
@@ -207,6 +211,7 @@ export default function Dashboard() {
               iconColor={overview.interventions.overdue ? 'var(--color-risk-high)' : 'var(--color-risk-low)'}
               iconBg={overview.interventions.overdue ? 'var(--color-risk-high-subtle)' : 'var(--color-risk-low-subtle)'}
               subtitle="open and past the due date"
+              to="/interventions"
             />
           </div>
 

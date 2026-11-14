@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 export default function StatCard({
   title,
@@ -9,16 +10,20 @@ export default function StatCard({
   badgeText,
   badgeType = 'default',
   subtitle,
+  to,
+  className = '',
+  style = {},
 }) {
-  return (
-    <div className="stat-card">
+  const content = (
+    <>
       <div className="stat-card-header">
         <span className="stat-card-title">{title}</span>
         <div
           className="stat-card-icon-wrapper"
           style={{ backgroundColor: iconBg, color: iconColor }}
+          aria-hidden="true"
         >
-          {Icon && <Icon size={20} />}
+          {Icon && <Icon size={20} aria-hidden="true" />}
         </div>
       </div>
 
@@ -57,6 +62,22 @@ export default function StatCard({
         )}
         {subtitle && <span>{subtitle}</span>}
       </div>
+    </>
+  );
+
+  const cardClasses = `stat-card ${to ? 'stat-card-link' : ''} ${className}`.trim();
+
+  if (to) {
+    return (
+      <Link to={to} className={cardClasses} style={style}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={cardClasses} style={style}>
+      {content}
     </div>
   );
 }
