@@ -8,9 +8,16 @@ export default function EmptyState({
   icon: Icon = Layers,
   actionLabel,
   onAction,
+  className = '',
+  style = {},
 }) {
   return (
-    <div className="state-container">
+    <div
+      className={`state-container ${className}`.trim()}
+      style={style}
+      role="status"
+      aria-live="polite"
+    >
       <div
         style={{
           width: '48px',
@@ -22,8 +29,9 @@ export default function EmptyState({
           alignItems: 'center',
           justifyContent: 'center',
         }}
+        aria-hidden="true"
       >
-        <Icon size={24} />
+        <Icon size={24} aria-hidden="true" />
       </div>
 
       <h3 className="state-title">{title}</h3>
