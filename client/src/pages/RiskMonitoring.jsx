@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ShieldAlert,
   AlertTriangle,
@@ -43,18 +43,34 @@ const DEFAULT_FILTERS = { category: '', dataStatus: '', grade: '', section: '', 
 
 export default function RiskMonitoring() {
   const { can } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialCategory = searchParams.get('category');
+  const validInitial = initialCategory && Object.values(RISK_CATEGORY).includes(initialCategory) ? initialCategory : '';
+
   const [overview, setOverview] = useState(null);
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState(() => ({
+    ...DEFAULT_FILTERS,
+    category: validInitial,
+  }));
   const [expanded, setExpanded] = useState(null);
   const [reviewing, setReviewing] = useState(null);
   const [recalculating, setRecalculating] = useState(null); // studentId | 'all' | null
   const [notice, setNotice] = useState('');
   const [rulesOpen, setRulesOpen] = useState(false);
+
+  // Deep-link sync: if ?category=<category> is provided in the URL, apply it and clean up the query string
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    if (categoryParam && Object.values(RISK_CATEGORY).includes(categoryParam)) {
+      setFilters((prev) => (prev.category === categoryParam ? prev : { ...prev, category: categoryParam }));
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);

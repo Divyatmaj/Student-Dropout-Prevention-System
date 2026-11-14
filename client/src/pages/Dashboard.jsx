@@ -280,7 +280,7 @@ function RiskDistribution({ counts, total }) {
         {RISK_SEGMENTS.map((s) => (
           <Link
             key={s.key}
-            to="/risk"
+            to={`/risk?category=${s.key}`}
             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-bg-muted)', textDecoration: 'none', color: 'inherit' }}
           >
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: s.color, flexShrink: 0 }} />
