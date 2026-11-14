@@ -1,328 +1,637 @@
-# Udaan — Student Retention & Early Intervention Platform
+# 🎓 Udaan — Student Retention & Early Intervention Platform
 
-> Identify early. Intervene meaningfully. Keep learning on track.
+> **Notice early. Intervene meaningfully. Keep every student's learning on track.**
 
-Udaan helps school staff notice early warning signs (attendance, academic
-decline, reported barriers), understand **why** a student was flagged through a
-transparent rule-based score, and track human-led interventions to completion.
+[![Node.js Version](https://img.shields.io/badge/Node.js-%3E%3D20.0.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React Version](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Express Version](https://img.shields.io/badge/Express-5.2-000000?logo=express&logoColor=white)](https://expressjs.com/)
+[![Prisma ORM](https://img.shields.io/badge/Prisma-7.10-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![Database](https://img.shields.io/badge/Database-PostgreSQL%20(Neon)-4169E1?logo=postgresql&logoColor=white)](https://neon.tech/)
+[![Bundler](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployment-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Live demo:** https://student-dropout-prevention-system.vercel.app/login — sign in with
-any [demo account](#demo-accounts) (password `Udaan@123`). The demo database is shared,
-so other visitors may have changed its records.
+---
 
-## Features
+## 🌐 Live Application & Demo Access
 
-- **Students** — searchable register with enrolment status, guardian contact, support
-  notes, student strengths and interests, duplicate profile warnings, and an assigned
-  class teacher; admins and principals can preview and bulk import up to 50 students
-  from a CSV. Students are never deleted.
-- **Attendance** — daily class register with reason categories for absences and
-  late arrivals, corrections with who-recorded-what, an audited delete, and a
-  school overview with class rates.
-- **Academics** — assessments per class and marks sheets checked against the maximum;
-  same-subject drops are highlighted.
-- **Risk indicator** — a transparent 0–100 rule-based score with its reasons, data
-  completeness, and a human review step.
-- **Interventions** — owned, time-bound support actions with outcomes, overdue tracking
-  and full history.
-- **Family meetings** — date-stamped parent or guardian meeting notes, attendees and agreed
-  follow-up actions on the student profile.
-- **Dashboard** — live school-wide (or a teacher's own) figures and follow-ups.
-- **Staff and roles** — school admin, principal and teacher, with teachers limited to
-  their assigned students; every school's data is kept separate.
+- **Production URL:** [https://student-dropout-prevention-system.vercel.app/login](https://student-dropout-prevention-system.vercel.app/login)
+- **Demo Password:** `Udaan@123` (shared across all pre-seeded accounts)
+- **Instant Testing:** Works directly in **Fullstack Database Mode** or standalone **Mock Mode** (`VITE_USE_MOCKS=true`) without external database setup.
 
-Built with React 18 + Vite, Express 5, Prisma 7 and PostgreSQL (Neon), deployed as one
-Vercel project. Business rules live once in `shared/` and are used by both the web app
-and the API.
+| Role | Demo Email | Access Scope |
+| :--- | :--- | :--- |
+| **School Administrator** | `admin@udaan.demo` | Full access, institutional configuration & staff management |
+| **Principal** | `principal@udaan.demo` | Whole-school visibility, academic oversight & risk monitoring |
+| **Class Teacher** | `teacher@udaan.demo` | Assigned class roster, daily attendance, marks & interventions |
+| **Subject Teacher** | `farhan.khan@udaan.demo` | Class teacher view for assigned secondary section |
 
-## Repository layout
+---
 
+## 📑 Table of Contents
+
+- [Project Overview](#-project-overview)
+- [Key Features](#-key-features)
+- [System Architecture](#-system-architecture)
+- [Application Workflow & Risk Engine](#-application-workflow--risk-engine)
+- [Tech Stack](#-tech-stack)
+- [Repository & Monorepo Structure](#-repository--monorepo-structure)
+- [Database Schema & Models](#-database-schema--models)
+- [Installation & Local Setup](#-installation--local-setup)
+- [Environment Variables](#-environment-variables)
+- [REST API Reference](#-rest-api-reference)
+- [Role-Based Access Control (RBAC)](#-role-based-access-control-rbac)
+- [Deployment Guide](#-deployment-guide)
+- [Future Improvements & Roadmap](#-future-improvements--roadmap)
+- [Privacy, Ethics & Data Governance](#-privacy-ethics--data-governance)
+- [Contributors & License](#-contributors--license)
+
+---
+
+## 📌 Project Overview
+
+Student dropouts are rarely sudden events; they are the culmination of gradual disengagement signaled through **attendance decline**, **academic distress**, **socioeconomic barriers**, and **unaddressed intervention gaps**.
+
+Traditional student information systems record these events in isolation, leaving educators to manually connect the dots when it is often too late. Meanwhile, black-box AI models produce arbitrary risk probabilities that teachers neither trust nor understand.
+
+**Udaan** is an open, human-centered early intervention and student retention platform engineered for schools. It combines:
+1. **Deterministic, 100% Explainable Risk Scoring:** A transparent 0–100 weighted indicator derived from explicit educational rules. Every single risk point is traced to an understandable root cause.
+2. **Unified Data Ingestion:** Integrates daily classroom attendance registers, multi-subject assessments, and reported socioeconomic barriers into a longitudinal timeline.
+3. **Actionable Intervention Lifecycles:** Transitions flags into owned, time-bound support casework with milestone tracking, parent conference logs, and audit-trailed outcomes.
+4. **Tenant Isolation & Role Protection:** Strict multi-school data boundaries where class teachers view only their assigned cohorts, while principals and administrators retain strategic institutional oversight.
+
+---
+
+## ✨ Key Features
+
+### 📊 1. Executive & Teacher Dashboards
+- **Adaptive Scope:** Principals and admins see school-wide trends; teachers receive a customized workspace scoped strictly to their assigned students.
+- **Attendance Analytics:** 30-, 60-, and 90-day attendance rates with clear denominator breakdowns (excluding excused medical days).
+- **Interactive Deep-Links:** Headline indicator cards link directly to filtered views (`High Risk`, `Open Follow-ups`, `Attendance Alerts`).
+- **Urgent Attention Roster:** Real-time list of students requiring immediate human check-ins with their primary trigger reasons.
+
+### 👥 2. Student Registry & Longitudinal Profiles
+- **Non-Destructive Records:** Students are never deleted; lifecycle states (`ACTIVE`, `INACTIVE`, `TRANSFERRED`, `COMPLETED`) preserve academic history.
+- **Holistic Context:** Tracks guardian contact info, support notes, socioeconomic flags, strengths, and personal interests.
+- **Bulk CSV Import:** Ingest up to 50 students per batch with dry-run validation, duplicate code detection, and transactional commit.
+- **Profile Utility:** Single-click clipboard copying for student admission codes with immediate visual feedback.
+
+### 📅 3. Attendance Management & Daily Register
+- **Class Register Workflow:** Quick mark-all-present with individual toggles for `Absent`, `Late`, and `Excused`.
+- **Reason Categorization:** Detailed tags for non-attendance (`Illness`, `Transport`, `Family Emergency`, `Appointment`, `Other`).
+- **Audit-Trailed Corrections:** Tracks who recorded and modified every record; administrative deletion requires written justification.
+- **Quick-Date Filters:** One-click `"Today"` button to toggle between historical logs and current day records.
+- **CSV Data Export:** Export full attendance histories formatted safely against spreadsheet formula injection.
+
+### 📈 4. Academic Performance Tracking
+- **Class-Level Assessments:** Configure term exams, unit tests, and quizzes with custom maximum marks.
+- **Bounds-Checked Mark Entry:** Bulk score entry with real-time validation against maximum thresholds.
+- **Subject Drop Detection:** Automatically detects and alerts on historical performance drops $\ge 10\%$ in the same subject.
+
+### 🛡️ 5. Early Warning Risk Engine
+- **Shared Rule Engine (`@udaan/shared`):** Single source of truth executed identically across frontend and backend.
+- **Human Review Safeguard:** Every medium or high risk flag requires periodic human sign-off with staff notes.
+- **Data Completeness Indicators:** Flags scores as `PROVISIONAL` (< 10 attendance days) or `INSUFFICIENT DATA` instead of misleadingly marking students as "Low Risk".
+
+### 🎯 6. Intervention & Casework Lifecycle
+- **End-to-End Tracking:** Support actions move across `OPEN` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `COMPLETED` or `CANCELLED`.
+- **Risk Snapshot Preservation:** Freezes student risk scores and reasons at the moment the case was opened for before-and-after comparison.
+- **Overdue Penalties:** Automatically escalates unresolved cases past their due date, applying an urgent +10 point risk penalty.
+- **Full History Log:** Append-only timeline documenting status transitions, reassignments, and counselor progress notes.
+
+### 👨‍👩‍👧 7. Family Meeting Journal
+- **Confidential Records:** Secure date-stamped conference notes logging guardian attendees, discussions, and agreed actions.
+- **Follow-up Reminders:** Links directly into student profiles to ensure home-school agreements are honored.
+
+---
+
+## 🏛️ System Architecture
+
+Udaan is structured as a modern **npm workspaces monorepo** deploying as a unified application. The React Single Page Application (SPA) and the Express serverless API live under a single domain on Vercel, eliminating cross-origin complexity while sharing business rules from `@udaan/shared`.
+
+```mermaid
+flowchart TD
+    subgraph ClientWorkspace["Frontend Client (client/)"]
+        SPA["React 18 SPA (Vite)"]
+        Router["React Router v6"]
+        UI["Accessible Component Library"]
+        Mocks["In-Memory Mock Adapter"]
+    end
+
+    subgraph SharedWorkspace["Shared Core (shared/)"]
+        Rules["@udaan/shared<br/>• Risk Engine & Weighted Rules<br/>• Attendance Calculations<br/>• RBAC Permissions & Enums"]
+    end
+
+    subgraph VercelEdge["Unified Deployment (Vercel Platform)"]
+        Edge["Vercel Edge Gateway"]
+        StaticAssets["Static Client Assets (/dist)"]
+        ServerlessEntry["Serverless API Entry (/api/v1/*)"]
+    end
+
+    subgraph ServerWorkspace["Backend API (server/)"]
+        ExpressApp["Express 5 Application"]
+        Security["Helmet & Rate Limiter"]
+        AuthMiddleware["JWT Authentication & RBAC"]
+        Controllers["Resource Controllers"]
+        PrismaAdapter["Prisma ORM 7 (@prisma/adapter-pg)"]
+    end
+
+    subgraph DatabaseCloud["Cloud Persistence (Neon PostgreSQL)"]
+        Pooler["PgBouncer Pooled Connection (API Runtime)"]
+        Direct["Direct TCP Connection (Prisma Migrations)"]
+    end
+
+    SPA --> Router
+    Router --> UI
+    UI -.-> Mocks
+    UI --> Edge
+
+    Edge -->|Static Files| StaticAssets
+    Edge -->|/api/v1/*| ServerlessEntry
+    ServerlessEntry --> ExpressApp
+
+    ExpressApp --> Security
+    Security --> AuthMiddleware
+    AuthMiddleware --> Controllers
+    Controllers --> PrismaAdapter
+
+    PrismaAdapter --> Pooler
+    Pooler --> DatabaseCloud
+    Direct --> DatabaseCloud
+
+    SPA -.-> Rules
+    ExpressApp -.-> Rules
 ```
-.
-├── client/          Udaan web app (React 18 + Vite)
-├── server/          Udaan API (Express 5 + Prisma 7 + PostgreSQL)
-├── shared/          Business rules shared by client and server (attendance, risk, interventions)
-├── api/             Vercel serverless entry that exposes the Udaan API
-├── vercel.json      Single Vercel project: static frontend + /api function
-├── neon.ts          Neon branch configuration (Postgres only)
-└── package.json     npm workspaces root
+
+---
+
+## 🔄 Application Workflow & Risk Engine
+
+### 1. Data Collection to Casework Workflow
+
+```mermaid
+flowchart TD
+    Start["Daily School Activities"] --> Att["Attendance Register Recorded"]
+    Start --> Marks["Assessment Marks Ingested"]
+    Start --> Status["Barrier or Status Modified"]
+
+    Att --> Engine["@udaan/shared Risk Engine"]
+    Marks --> Engine
+    Status --> Engine
+
+    Engine --> ScoreCalc["Evaluate 5 Weighted Rules (0–100)"]
+    ScoreCalc --> CategoryFork{"Determine Category"}
+
+    CategoryFork -->|0 – 24 pts| CatLow["Low Risk (On Track)"]
+    CategoryFork -->|25 – 49 pts| CatMed["Medium Risk (Monitor Closely)"]
+    CategoryFork -->|50 – 100 pts| CatHigh["High Risk (Urgent Action)"]
+    CategoryFork -->|< 10 Days Data| CatProv["Provisional / Insufficient Data"]
+
+    CatMed --> DashboardAlert["Flagged on Principal / Teacher Dashboard"]
+    CatHigh --> DashboardAlert
+
+    DashboardAlert --> HumanReview["Staff Review & Diagnostic Evaluation"]
+    HumanReview --> OpenIntervention["Open Targeted Intervention"]
+
+    OpenIntervention --> Assign["Assign Owner, Priority & Due Date"]
+    Assign --> FamilyConf["Log Parent/Guardian Meeting"]
+    FamilyConf --> CaseAction["Execute Support Action Plan"]
+
+    CaseAction --> OutcomeCheck{"Is Concern Resolved?"}
+    OutcomeCheck -->|Yes| CompleteCase["Close Case with Written Outcome"]
+    OutcomeCheck -->|Past Due Date| OverduePenalty["Trigger +10 Overdue Risk Penalty"]
+
+    CompleteCase --> Engine
+    OverduePenalty --> Engine
 ```
 
-The Udaan web app and API deploy as **one Vercel project on one domain**:
+### 2. The 0–100 Transparent Risk Formula
 
-| Request          | Served by                                         |
-| ---------------- | ------------------------------------------------- |
-| `/api/v1/*`      | Udaan API running as a Vercel function            |
-| everything else  | `client/dist` (React SPA, `index.html` fallback)  |
+Unlike predictive black-box algorithms, Udaan evaluates explicit, verifiable indicators. The score directly reflects actionable institutional metrics:
 
-Because both live on the same origin, the frontend always calls relative
-`/api/v1/...` URLs and no CORS configuration is needed in production. During
-local development, the Vite dev server proxies `/api` to the local Express
-server, so the same code works in both environments.
+| Risk Trigger Condition | Assigned Weight | Educational Rationale |
+| :--- | :---: | :--- |
+| **Severe Chronic Absence** (Rate $< 75\%$) | **+30 pts** | Missing $> 1$ day per week critically disrupts curriculum continuity. |
+| **Moderate Attendance Dip** (Rate $75\% \le r < 85\%$) | **+15 pts** | Early slippage indicating emerging disengagement. |
+| **Prolonged Consecutive Absences** ($\ge 5$ school days) | **+25 pts** | High acute correlation with unannounced school dropout. |
+| **Short Consecutive Absences** ($3 - 4$ school days) | **+15 pts** | Warning indicator of potential illness, family emergency, or truancy. |
+| **Severe Subject Score Drop** ($\ge 20\%$ decline) | **+20 pts** | Acute academic struggle in a previously passed subject. |
+| **Moderate Subject Score Drop** ($10\% - 19.9\%$ decline) | **+10 pts** | Emerging academic distress requiring subject tutoring. |
+| **Reported Socioeconomic Barrier** | **+10 pts** | Financial stress, fee hardship, or lack of learning resources. |
+| **Overdue Active Intervention** | **+10 pts** | Institutional failure to resolve an existing open support action. |
 
-## Getting started
+```mermaid
+flowchart LR
+    subgraph Triggers["Input Indicators"]
+        T1["Attendance Rate"]
+        T2["Consecutive Absences"]
+        T3["Same-Subject Drop"]
+        T4["Financial Barrier"]
+        T5["Overdue Intervention"]
+    end
 
-Requirements: Node.js 20+ and npm 10+.
+    subgraph Scoring["Rule Evaluation"]
+        S1["< 75%: +30<br/>75–84.9%: +15"]
+        S2["5+ Days: +25<br/>3–4 Days: +15"]
+        S3[">= 20% Drop: +20<br/>10–19.9%: +10"]
+        S4["Barrier Reported: +10"]
+        S5["Past Due Date: +10"]
+    end
+
+    subgraph Result["Classification"]
+        Score["Total Score (0–100)"]
+        Band1["Low (0–24)"]
+        Band2["Medium (25–49)"]
+        Band3["High (50+)"]
+    end
+
+    T1 --> S1
+    T2 --> S2
+    T3 --> S3
+    T4 --> S4
+    T5 --> S5
+
+    S1 --> Score
+    S2 --> Score
+    S3 --> Score
+    S4 --> Score
+    S5 --> Score
+
+    Score --> Band1
+    Score --> Band2
+    Score --> Band3
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology | Version | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Frontend Framework** | React | `18.3.1` | Component-driven UI architecture with hooks and clean state separation |
+| **Build Tool** | Vite | `5.4.11` | Ultra-fast HMR and optimized production asset bundling |
+| **Routing** | React Router DOM | `6.28.0` | Client-side routing, protected routes, and query deep-linking |
+| **Iconography** | Lucide React | `0.460.0` | Clean, accessible SVG iconography |
+| **Styling** | Vanilla CSS Variables | CSS3 | Native design system tokens, zero-runtime CSS overhead, dark/light ready |
+| **Backend Framework** | Express | `5.2.1` | REST API framework running on Node.js and Vercel Serverless |
+| **ORM & Database** | Prisma | `7.10.1` | Type-safe schema definition, automated migrations, and queries |
+| **Database Engine** | PostgreSQL (Neon) | `16.x` | Serverless cloud PostgreSQL with connection pooling via PgBouncer |
+| **Security & Auth** | JWT & Bcrypt.js | `9.0` / `3.0` | Stateless token authentication with salted password hashing (12 rounds) |
+| **Protection** | Helmet & Rate Limit | `8.3` / `8.7` | HTTP security headers and brute-force mitigation on auth routes |
+| **Shared Core** | `@udaan/shared` | Internal | Isomorphic business rules, risk scoring, permissions, and validators |
+| **Testing** | Vitest & Supertest | `2.1.8` | High-speed unit testing and end-to-end HTTP integration tests |
+
+---
+
+## 📂 Repository & Monorepo Structure
+
+```text
+Student-Dropout-Prevention-System/
+├── api/                             # Vercel serverless function entry
+│   └── index.js                     # Wraps server/src/app.js for Vercel Functions
+├── client/                          # React + Vite frontend workspace
+│   ├── public/                      # Static assets & favicon
+│   ├── src/
+│   │   ├── components/              # Modular UI components
+│   │   │   ├── attendance/          # ClassRegister, AttendanceRecords, CSV export
+│   │   │   ├── auth/                # ProtectedRoute & permission guards
+│   │   │   ├── common/              # Button, SearchBar, Badge, Modal, StatCard, States
+│   │   │   ├── interventions/       # InterventionFormModal, DetailModal, History
+│   │   │   ├── risk/                # RiskExplanation, ReviewRiskModal
+│   │   │   └── students/            # StudentFormModal, StatusModal, ParentMeetingLog
+│   │   ├── constants/               # Client-side labels, options & constants
+│   │   ├── data/                    # In-memory mock datasets (fallback mode)
+│   │   ├── hooks/                   # useAuth, useDebounce custom React hooks
+│   │   ├── pages/                   # Dashboard, Students, Attendance, Academics, Risk, etc.
+│   │   ├── services/                # API client adapters (HTTP fetch wrappers)
+│   │   └── utils/                   # Formatters, permission checkers, calculations
+│   ├── index.html                   # HTML entry point
+│   ├── package.json                 # Client workspace manifest
+│   └── vite.config.js               # Vite config with API proxy for development
+├── server/                          # Express + Prisma backend workspace
+│   ├── prisma/
+│   │   ├── schema.prisma            # Multi-model relational database schema
+│   │   ├── seed.js                  # Demo institution seed data script
+│   │   └── migrations/              # SQL migration history
+│   ├── src/
+│   │   ├── config/                  # Prisma pg adapter & environment configuration
+│   │   ├── controllers/             # Request handlers (auth, students, risk, etc.)
+│   │   ├── middleware/              # Auth verification, RBAC, error handlers
+│   │   ├── routes/                  # Express v1 route definitions
+│   │   ├── services/                # Business logic & database operations
+│   │   ├── app.js                   # Express app setup & middleware mounting
+│   │   └── server.js                # Local server entry (port 5000)
+│   └── package.json                 # Server workspace manifest
+├── shared/                          # Isomorphic shared library workspace
+│   ├── src/
+│   │   ├── attendance.js            # Unified attendance rate & streak logic
+│   │   ├── constants.js             # Grade levels, sections, status enums
+│   │   ├── index.js                 # Shared library export root
+│   │   ├── interventions.js         # Intervention categories, priorities & transitions
+│   │   ├── permissions.js           # RBAC permission matrix
+│   │   └── risk.js                  # 0–100 Rule-based risk calculation engine
+│   └── package.json                 # Shared package manifest
+├── neon.ts                          # Neon branch configuration
+├── vercel.json                      # Vercel deployment routing & build orchestration
+└── package.json                     # Root monorepo workspace configuration
+```
+
+---
+
+## 🗄️ Database Schema & Models
+
+The database schema is managed via **Prisma 7** targeting PostgreSQL. Every institutional entity is scoped by `schoolId` to guarantee strict multi-tenant isolation.
+
+```mermaid
+erDiagram
+    School ||--o{ User : "employs"
+    School ||--o{ Student : "enrols"
+    School ||--o{ Assessment : "manages"
+    School ||--o{ Intervention : "coordinates"
+    
+    User ||--o{ Student : "assigned as class teacher"
+    User ||--o{ Attendance : "records"
+    User ||--o{ StudentMark : "enters"
+    User ||--o{ RiskAssessment : "reviews"
+    User ||--o{ Intervention : "owns / creates"
+    User ||--o{ ParentMeetingLog : "logs"
+
+    Student ||--o{ Attendance : "has daily"
+    Student ||--o{ StudentMark : "receives"
+    Student ||--o| RiskAssessment : "evaluated by"
+    Student ||--o{ Intervention : "supported by"
+    Student ||--o{ ParentMeetingLog : "subject of"
+
+    Assessment ||--o{ StudentMark : "contains"
+    Intervention ||--o{ InterventionEvent : "appends history"
+```
+
+### Relational Entity Summary
+
+| Model | Table Name | Core Responsibilities & Attributes |
+| :--- | :--- | :--- |
+| **`School`** | `schools` | Multi-tenant tenant boundary; institutional code and settings. |
+| **`User`** | `users` | Staff credentials, bcrypt password hash, assigned role, active state. |
+| **`Student`** | `students` | Admission number, grade, section, guardian details, barriers, support notes. |
+| **`Attendance`** | `attendance` | Unique `(studentId, date)` pair; status (`PRESENT`, `ABSENT`, `LATE`, `EXCUSED`), reason. |
+| **`Assessment`** | `assessments` | Class-level test/exam metadata, subject, grade, section, maximum marks. |
+| **`StudentMark`** | `student_marks` | Unique `(studentId, assessmentId)` scored marks record. |
+| **`RiskAssessment`**| `risk_assessments`| One-to-one per active student; score (0–100), category, reason JSON, review audit. |
+| **`Intervention`** | `interventions` | Student support case; concern category, priority, assignee, due date, outcome. |
+| **`InterventionEvent`**| `intervention_events`| Append-only history logging status changes, assignments, and counselor progress notes. |
+| **`ParentMeetingLog`**| `parent_meeting_logs`| Sensitive conference logs with guardians, attendees, and agreed action plans. |
+| **`AuditLog`** | `audit_logs` | Immutable audit trail capturing sensitive deletes and administrative overrides. |
+
+---
+
+## 🚀 Installation & Local Setup
+
+### Prerequisites
+- **Node.js:** `v20.0.0` or higher
+- **npm:** `v10.0.0` or higher
+- **PostgreSQL:** Neon Cloud PostgreSQL account (recommended) or local PostgreSQL instance
+
+### Step 1: Clone and Install Dependencies
 
 ```bash
-npm install                      # installs all workspaces and generates the Prisma client
-cp client/.env.example client/.env.local
+git clone https://github.com/aasthamusale/Student-Dropout-Prevention-System.git
+cd Student-Dropout-Prevention-System
+
+# Installs dependencies across client, server, and shared workspaces
+npm install
 ```
 
-The web app talks to the Udaan API, so set up the database and API below, then run
-`npm run dev`. For frontend-only work without a database, set `VITE_USE_MOCKS=true` in
-`client/.env.local`: the web app then runs on built-in demo data (changes are kept in
-memory until the page is reloaded).
+### Step 2: Choose Your Operating Mode
 
-### Running the API
+Udaan supports two distinct local development workflows:
 
-The API needs a PostgreSQL database. This project uses [Neon](https://neon.com)
-(Lakebase Postgres) and the Neon CLI (`npm i -g neon`).
+#### Option A: Fast Frontend Mode (Zero Database Setup)
+Ideal for testing UI components, responsive layouts, and interactive workflows without installing PostgreSQL.
 
-1. Sign in and link this folder to the Neon project (once):
-   `neon login`, then `neon link` (writes the git-ignored `.neon` file).
-2. Pull the connection strings: `neon env pull` (or `neon deploy`, which also applies
-   `neon.ts`). This writes `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct)
-   into the git-ignored `.env.local`, which the API and Prisma read automatically.
-3. Create the tables: `npm run db:deploy` (uses the direct connection).
-4. Set a token-signing secret in `server/.env` (git-ignored):
-   `echo "JWT_SECRET=\"$(openssl rand -base64 48)\"" > server/.env`
-5. Add the demo school, staff, students, attendance, assessments, marks and
-   interventions: `npm run db:seed` (safe to re-run; it only adds what is missing).
-6. Start both apps: `npm run dev` (API on http://localhost:5000, web app on
-   http://localhost:3000; the web app proxies `/api` to the API).
-7. Check the connection: http://localhost:3000/api/v1/health/db should return
-   `"database":"ok"` and the latest migration name.
+```bash
+# 1. Copy the client environment file
+cp client/.env.example client/.env.local
 
-Without the Neon CLI, copy both connection strings from the Neon console into
-`server/.env` (see `server/.env.example`). A local PostgreSQL also works: set only
-`DATABASE_URL`.
+# 2. Enable in-memory mock mode
+echo "VITE_USE_MOCKS=true" >> client/.env.local
 
-`neon.ts` declares the Neon services for each branch (only Postgres for now). New
-non-default branches expire after 7 days, which suits per-feature branches created with
-`neon checkout <name> --create`.
+# 3. Start the Vite development server
+npm run dev:web
+```
+*The web app will run at `http://localhost:3000` pre-loaded with comprehensive demo datasets.*
 
-### Scripts (run from the repo root)
+---
 
-| Command              | What it does                                              |
-| -------------------- | --------------------------------------------------------- |
-| `npm run dev`        | Start the API and the web app together                    |
-| `npm run dev:web`    | Start only the web app                                    |
-| `npm run dev:api`    | Start only the API (restarts on file changes)             |
-| `npm run build`      | Generate the Prisma client and build the web app          |
-| `npm test`           | Run the unit tests in every workspace                     |
-| `npm run db:migrate` | Create a migration after editing `schema.prisma` (dev DB) |
-| `npm run db:deploy`  | Apply pending migrations to the database                  |
-| `npm run db:status`  | Show which migrations have been applied                   |
-| `npm run db:seed`    | Add the demo school, staff, records and interventions     |
-| `npm run db:studio`  | Browse the database in Prisma Studio                      |
+#### Option B: Fullstack Mode (With PostgreSQL & Neon)
+Connects the React frontend, Express API, and cloud PostgreSQL database.
 
-API tests run without a database. To also run the database tests, point
-`TEST_DATABASE_URL` at a disposable database whose name contains `test` (the tests
-empty it first), migrated with `npm run db:deploy`:
-`TEST_DATABASE_URL=postgresql://.../udaan_test npm test -w server`.
+1. **Configure Server Environment:**
+   Create `server/.env` with your PostgreSQL connection strings:
+   ```env
+   PORT=5000
+   DATABASE_URL="postgresql://user:password@ep-sample-pooler.neon.tech/udaan?sslmode=require"
+   DATABASE_URL_UNPOOLED="postgresql://user:password@ep-sample.neon.tech/udaan?sslmode=require"
+   JWT_SECRET="your-super-secret-random-key-at-least-32-chars-long"
+   JWT_EXPIRES_IN="8h"
+   BCRYPT_ROUNDS=12
+   SCHOOL_TIMEZONE="Asia/Kolkata"
+   ```
 
-### API conventions
+2. **Configure Client Environment:**
+   Create `client/.env.local`:
+   ```env
+   VITE_API_BASE_URL="/api/v1"
+   VITE_DEV_API_PROXY="http://localhost:5000"
+   VITE_USE_MOCKS=false
+   VITE_SHOW_DEMO_ACCOUNTS=true
+   ```
 
-- Base path `/api/v1`. Successful responses: `{ "success": true, "data": ..., "message"? }`.
-- Errors: `{ "success": false, "error": { "code", "message", "details": [{ "field", "message" }] } }`
-  with 400 (malformed), 401, 403, 404, 409 (duplicate/conflict), 422 (validation),
-  413 (body over 100 kB) and 503 (database unavailable).
-- `GET /api/v1/health` checks the API; `GET /api/v1/health/db` checks the database.
+3. **Deploy Migrations & Seed Database:**
+   ```bash
+   # Run Prisma migrations against the database
+   npm run db:deploy
 
-### Sign-in and access
+   # Seed default demo school, staff, students, and records
+   npm run db:seed
+   ```
 
-- `POST /api/v1/auth/login` returns a signed JWT (8 hours by default) and the user;
-  send it as `Authorization: Bearer <token>`. `GET /api/v1/auth/me` returns the
-  current user.
-- Passwords are stored only as bcrypt hashes. A wrong password, an unknown email and a
-  deactivated account all get the same `401 Invalid email or password`, and failed
-  attempts are limited to 10 per email and IP in 15 minutes (`429`).
-- Every request reloads the user, so deactivating an account or changing a role takes
-  effect immediately.
-- Roles: **school administrator** (everything, including staff accounts), **principal**
-  (school-wide view, enrolment, cannot manage staff), **teacher** (attendance, marks,
-  interventions). The same permission table (`shared/src/permissions.js`) drives the
-  web app's menus and the API's checks.
-- Every query is limited to the user's own school: another school's ids return `404`.
-- There is no public sign-up. School admins create staff accounts on the Staff page
-  (`/api/v1/users`).
-- **Teachers see only the students assigned to them** (the "Class teacher" field on a
-  student, set by an administrator or principal). That covers students, attendance,
-  marks and the assessments for those students' classes. Teachers can update guardian
-  contact and support notes, but not enrolment details.
+4. **Launch Both Applications Concurrently:**
+   ```bash
+   npm run dev
+   ```
+   - **Client App:** `http://localhost:3000`
+   - **Express API:** `http://localhost:5000`
+   - **Health Check:** `http://localhost:5000/api/v1/health/db`
 
-### Records API
+---
 
-| Area | Endpoints |
-| --- | --- |
-| Students | `GET/POST /students`, `GET/PATCH /students/:id`, `PATCH /students/:id/status`, `GET /students/:id/summary`, `POST /students/import/preview`, `POST /students/import` |
-| Attendance | `GET /attendance`, `GET /attendance/overview`, `GET /attendance/register`, `GET /attendance/student/:studentId`, `POST /attendance`, `POST /attendance/bulk`, `PATCH /attendance/:id`, `DELETE /attendance/:id` |
-| Assessments | `GET/POST /assessments`, `GET /assessments/overview`, `GET/PATCH/DELETE /assessments/:id` |
-| Marks | `POST /marks`, `POST /marks/bulk`, `PATCH /marks/:id`, `DELETE /marks/:id` |
-| Risk | `GET /risk`, `GET /risk/overview`, `GET /risk/:studentId`, `POST /risk/recalculate/:studentId`, `POST /risk/recalculate` (admin, principal), `POST /risk/:studentId/review` |
-| Interventions | `GET/POST /interventions`, `GET /interventions/overview`, `GET/PATCH /interventions/:id`, `PATCH /interventions/:id/status` |
-| Dashboard | `GET /dashboard/overview` (admin, principal), `GET /dashboard/teacher` (teacher), `GET /dashboard/attention` |
-| Family meetings | `GET/POST /students/:id/parent-meetings` |
+## ⚙️ Environment Variables
 
-- One attendance record per student per day, and one mark per student per assessment
-  (`409` on duplicates). The bulk endpoints save a whole register or marks sheet at once:
-  all entries are checked first, and nothing is saved if any is invalid.
-- Teachers can correct only the attendance they recorded; administrators and principals
-  can correct any. Deleting an attendance record or a mark is for administrators only,
-  needs a reason, and keeps a copy in the audit log.
-- Students are never deleted — their status changes instead, and their history is kept.
-- Every change to attendance, marks, the financial-barrier flag or enrolment status
-  recalculates that student's risk indicator straight away.
-- "Today" (for future-date checks and overdue follow-ups) is the school's date, set by
-  `SCHOOL_TIMEZONE` (default `Asia/Kolkata`).
-- An intervention becomes overdue at midnight without anyone touching it, so whenever
-  risk is read (risk list, overview, dashboard) the API first recalculates any score that
-  was last calculated before today.
-- Interventions are never deleted: they are completed (with an outcome) or cancelled
-  (with a reason). Teachers see interventions for their students plus any they created
-  or own.
+### Client Workspace (`client/.env.local`)
 
-## Attendance policy
+| Variable | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `VITE_API_BASE_URL` | String | `/api/v1` | Base relative path prefix for API requests. |
+| `VITE_DEV_API_PROXY` | URL | `http://localhost:5000` | Target URL used by Vite dev server to proxy `/api` calls. |
+| `VITE_USE_MOCKS` | Boolean | `false` | When `true`, runs completely on in-memory mock data without API. |
+| `VITE_SHOW_DEMO_ACCOUNTS` | Boolean | `false` | Displays clickable quick-fill demo account pills on Login page. |
 
-Udaan calculates attendance the same way in the web app and the API (see
-`shared/src/attendance.js`):
+### Server Workspace (`server/.env`)
 
-- Each student has at most one record per school day: Present, Absent, Late or Excused.
-- **Late** counts as attended. **Excused** days are left out of the percentage.
-- A day with no record is never treated as an absence.
-- Attendance % = (present + late) ÷ (present + late + absent).
-- Consecutive absences count the latest *recorded* school days, not calendar days.
+| Variable | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `PORT` | Number | `5000` | Port for the local Express HTTP server. |
+| `DATABASE_URL` | String | *Required* | Pooled PostgreSQL connection string (PgBouncer). |
+| `DATABASE_URL_UNPOOLED` | String | *Optional* | Direct PostgreSQL TCP connection used for migrations. |
+| `JWT_SECRET` | String | *Required* | Secret key for signing JSON Web Tokens (min 32 chars). |
+| `JWT_EXPIRES_IN` | String | `8h` | Session token validity duration. |
+| `BCRYPT_ROUNDS` | Number | `12` | Salt calculation cost factor for password hashing. |
+| `SCHOOL_TIMEZONE` | String | `Asia/Kolkata` | IANA timezone used to determine "today" for attendance & overdue checks. |
+| `LOGIN_RATE_LIMIT` | Number | `10` | Max failed login attempts allowed per IP/email per 15 minutes. |
+| `CORS_ORIGINS` | String | `""` | Optional comma-separated origins if running frontend on a separate host. |
 
-## Risk indicator
+---
 
-Udaan's early-warning score (0–100) is a transparent rule table, implemented once in
-`shared/src/risk.js` and covered by unit tests:
+## 📡 REST API Reference
 
-| Rule | Points |
-| --- | --- |
-| Attendance below 75% / from 75% to below 85% | +30 / +15 |
-| 3–4 / 5+ consecutive absent school days | +15 / +25 |
-| Same-subject result drop of 10–19.9 / 20+ percentage points | +10 / +20 |
-| Financial barrier reported | +10 |
-| Open intervention past its due date | +10 |
+All endpoints are prefixed with `/api/v1`. Authenticated requests require the `Authorization: Bearer <token>` header.
 
-Low 0–24, Medium 25–49, High 50+. With fewer than 10 recorded school days or no marks
-the score is **provisional**; with no usable data it is **insufficient data** (never
-"low"). Every score lists its reasons and must be reviewed by a person. It is a
-prioritisation aid for staff — not a prediction, and never grounds for punitive action.
+### Standard Response Envelope
 
-## Interventions
+```json
+// Successful Response
+{
+  "success": true,
+  "data": { ... },
+  "message": "Operation completed successfully"
+}
 
-An intervention is a support action for one student with a concern category
-(attendance, academic, financial, accessibility, family, other), a priority, an
-**owner** and a **due date**. Rules live in `shared/src/interventions.js`:
+// Error Response
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Input validation failed",
+    "details": [
+      { "field": "score", "message": "Score cannot exceed assessment max marks (50)" }
+    ]
+  }
+}
+```
 
-- Status moves between Open → In progress → Completed or Cancelled. Completing needs a
-  written outcome; cancelling or reopening needs a reason.
-- An open intervention is **overdue** once its due date has passed (due today is not
-  overdue). Overdue interventions add +10 to the student's risk score until resolved.
-- The student's risk reasons at the time are saved with the intervention, and every
-  change is kept in an append-only history.
-- Only the creator, the owner, a principal or a school admin can change an intervention.
-- Dashboards show who and when, never the concern text or notes.
+### Endpoint Matrix
 
-## Demo accounts
+| Module | Method & Path | Description | Access |
+| :--- | :--- | :--- | :--- |
+| **Auth** | `POST /auth/login` | Authenticate credentials & retrieve JWT token | Public |
+| | `GET /auth/me` | Retrieve profile of currently authenticated user | Authenticated |
+| **Students** | `GET /students` | Paginated list of students with filters & search | Authenticated |
+| | `POST /students` | Enrol a new student into the school register | Admin, Principal |
+| | `GET /students/:id` | Full student profile including attendance & risk | Scoped |
+| | `PATCH /students/:id` | Update student guardian or contact details | Scoped |
+| | `PATCH /students/:id/status` | Change student lifecycle state (`TRANSFERRED`, etc.) | Admin, Principal |
+| | `POST /students/import` | Bulk import up to 50 students from parsed CSV | Admin, Principal |
+| **Attendance**| `GET /attendance/register` | Daily attendance register grid for grade/section | Scoped |
+| | `POST /attendance/bulk` | Ingest class register with validation safeguards | Scoped |
+| | `GET /attendance/overview` | School-wide attendance statistics and trends | Authenticated |
+| | `PATCH /attendance/:id` | Correct attendance entry with audit logging | Author / Admin |
+| | `DELETE /attendance/:id` | Administrative removal of erroneous attendance log | Admin Only |
+| **Academics** | `GET /assessments` | Retrieve assessments for class cohorts | Scoped |
+| | `POST /assessments` | Create a test/exam specification | Scoped |
+| | `POST /marks/bulk` | Enter assessment marks for students in batch | Scoped |
+| **Risk Engine**| `GET /risk` | Filterable risk list with score breakdowns | Authenticated |
+| | `GET /risk/overview` | School-wide high/medium/low distribution | Authenticated |
+| | `POST /risk/:id/review` | Record human review note on student risk flag | Authenticated |
+| | `POST /risk/recalculate` | Re-run batch evaluation across all enrolled students | Admin, Principal |
+| **Interventions**| `GET /interventions` | Filterable list of student intervention cases | Scoped |
+| | `POST /interventions` | Open a new intervention case with risk snapshot | Scoped |
+| | `PATCH /interventions/:id/status` | Transition case status (`IN_PROGRESS`, `COMPLETED`)| Owner / Admin |
+| **Dashboard** | `GET /dashboard/overview` | Whole-school executive KPI figures & alerts | Admin, Principal |
+| | `GET /dashboard/teacher` | Teacher-scoped KPIs for assigned cohorts | Teachers |
+| **Meetings** | `GET /students/:id/parent-meetings` | Retrieve family engagement conference history | Scoped |
+| | `POST /students/:id/parent-meetings` | Record confidential guardian meeting journal | Scoped |
 
-Created by `npm run db:seed` (and built into mock mode). All use the password
-`Udaan@123` — it is public, so only use the seed on a demo database.
+---
 
-| Email | Role |
-| --- | --- |
-| `admin@udaan.demo` | School administrator — manages staff |
-| `principal@udaan.demo` | Principal |
-| `teacher@udaan.demo` | Teacher — dashboard shows assigned students |
-| `farhan.khan@udaan.demo` | Teacher |
-| `inactive@udaan.demo` | Deactivated — cannot sign in |
+## 🔐 Role-Based Access Control (RBAC)
 
-## Environment variables
+Udaan enforces least-privilege role separation defined declaratively in `shared/src/permissions.js`:
 
-| Variable             | Where   | Purpose                                                        |
-| -------------------- | ------- | -------------------------------------------------------------- |
-| `VITE_API_BASE_URL`  | client  | API base path (default `/api/v1`)                              |
-| `VITE_DEV_API_PROXY` | client  | Local API URL the dev server proxies `/api` to                 |
-| `VITE_USE_MOCKS`     | client  | `true` to use built-in demo data instead of the API (default `false`) |
-| `VITE_SHOW_DEMO_ACCOUNTS` | client | `true` to list the demo accounts on the login page (always on in mock mode) |
-| `DATABASE_URL`       | server  | PostgreSQL connection used by the API (Neon: pooled string)    |
-| `DATABASE_URL_UNPOOLED` | server | Direct connection used only for migrations (Neon)            |
-| `PORT`               | server  | Local API port (default `5000`)                                |
-| `CORS_ORIGINS`       | server  | Only if the web app runs on another origin (comma-separated)   |
-| `DB_POOL_MAX`        | server  | Connections per API instance (default `5`)                     |
-| `JWT_SECRET`         | server  | Signs login tokens — 32+ random characters, secret             |
-| `JWT_EXPIRES_IN`     | server  | Session length (default `8h`)                                  |
-| `BCRYPT_ROUNDS`      | server  | Password hashing cost (default `12`)                           |
-| `SCHOOL_TIMEZONE`    | server  | The school's timezone for "today" (default `Asia/Kolkata`)     |
-| `LOGIN_RATE_LIMIT`   | server  | Failed sign-ins allowed per email and IP per 15 min (default `10`) |
+| Capability / Module | School Admin | Principal | Class Teacher |
+| :--- | :---: | :---: | :---: |
+| **Manage Staff Accounts** | ✅ | ❌ | ❌ |
+| **View Whole-School Dashboard** | ✅ | ✅ | ❌ *(Assigned cohort only)* |
+| **Enrol & Transfer Students** | ✅ | ✅ | ❌ |
+| **View Assigned Students** | ✅ | ✅ | ✅ *(Assigned cohort only)* |
+| **Record Attendance & Marks** | ✅ | ✅ | ✅ *(Assigned cohort only)* |
+| **Correct Any Attendance Record** | ✅ | ✅ | ❌ *(Own records only)* |
+| **Delete Attendance (Audited)** | ✅ | ❌ | ❌ |
+| **Initiate Interventions** | ✅ | ✅ | ✅ |
+| **Review & Sign-Off Risk Flags** | ✅ | ✅ | ✅ |
+| **Log Family Conference Meetings** | ✅ | ✅ | ✅ *(Assigned cohort only)* |
 
-## Deployment (Vercel)
+---
 
-The web app and the API deploy together as one Vercel project on one domain.
-`vercel.json` runs `npm run build` (Prisma client + web app), serves `client/dist` with an
-`index.html` fallback, and deploys `api/index.js` (the Express app) as a serverless
-function that handles every `/api/*` request.
+## 🌐 Deployment Guide
 
-1. **Database first.** Migrations are applied from your machine, never during the build:
-   `npm run db:deploy`, then (for the demo) `npm run db:seed`.
-2. **Import the repository** in Vercel → *Add New… → Project*. Keep **Root Directory**
-   as the repository root and leave the framework preset as *Other*; `vercel.json`
-   supplies the commands.
-3. **Environment variables** (*Project → Settings → Environment Variables*, for
-   Production and Preview):
+Udaan is architected to deploy as **a single unified Vercel project on one domain**:
+- `vercel.json` coordinates building both workspaces (`client` and `server`).
+- The client SPA is served statically from `client/dist` with client-side fallback routing (`/*` $\rightarrow$ `index.html`).
+- The Express API is bundled via `api/index.js` as a Vercel Serverless Function servicing `/api/v1/*`.
+- **Zero CORS Needed:** Because both the frontend and backend share the identical origin in production, cross-origin security friction is eliminated.
 
-   | Variable | Value |
-   | --- | --- |
-   | `DATABASE_URL` | Neon **pooled** connection string (host contains `-pooler`) |
-   | `JWT_SECRET` | a **new** random value: `openssl rand -base64 48` — not your local one |
-   | `SCHOOL_TIMEZONE` | optional, default `Asia/Kolkata` |
-   | `VITE_SHOW_DEMO_ACCOUNTS` | optional, `true` only for a public demo |
+### Production Deployment Steps
 
-   `DATABASE_URL_UNPOOLED` is not needed on Vercel (only migrations use it).
-   Paste only the value itself — no quotes, no `NAME=` prefix, no `psql` command around
-   the connection string. Variable changes take effect on the next deployment.
-4. **Deploy**, then check `https://<your-app>.vercel.app/api/v1/health/db`: it should
-   return `"database":"ok"` and the latest migration name. For this project:
-   https://student-dropout-prevention-system.vercel.app/api/v1/health/db
+1. **Provision Neon PostgreSQL:**
+   Create a project on [Neon](https://neon.tech) and copy your **Pooled** connection string.
+2. **Apply Migrations Locally:**
+   ```bash
+   DATABASE_URL="<your-neon-direct-url>" npm run db:deploy
+   DATABASE_URL="<your-neon-pooled-url>" npm run db:seed  # Optional for demo data
+   ```
+3. **Import into Vercel:**
+   - Link your GitHub repository in the Vercel Dashboard.
+   - Leave Root Directory as `./` (repository root).
+   - Preset: **Other** (configured automatically by `vercel.json`).
+4. **Configure Production Environment Variables:**
+   - `DATABASE_URL`: Your Neon pooled connection string.
+   - `JWT_SECRET`: A high-entropy 48-byte random string (`openssl rand -base64 48`).
+   - `SCHOOL_TIMEZONE`: e.g. `Asia/Kolkata`.
+   - `VITE_SHOW_DEMO_ACCOUNTS`: `false` (or `true` for public demonstrator).
+5. **Trigger Deployment:**
+   Deploy and verify API connectivity via `https://<your-deployment>.vercel.app/api/v1/health/db`.
 
-Notes:
-- The API uses `node-postgres` with a small pool registered through
-  `attachDatabasePool` (`@vercel/functions`), so idle connections are released when an
-  instance goes idle. Function time limit: 30 s (`vercel.json`).
-- After changing `schema.prisma`, create the migration locally (`npm run db:migrate`),
-  commit it, and run `npm run db:deploy` against Neon before deploying the new code.
-- The login rate limit is kept in memory, so each serverless instance counts on its own.
-- If the API fails to start, the deployment's **Logs** tab shows the reason (for example,
-  which environment variable is invalid). Vercel's "server error" page on sign-in usually
-  means a missing or malformed `DATABASE_URL` or `JWT_SECRET`.
+---
 
-## Demo walkthrough
+## 🔮 Future Improvements & Roadmap
 
-A five-minute tour of the seeded demo school — locally or on the
-[live demo](https://student-dropout-prevention-system.vercel.app/login) (password
-`Udaan@123` for every account):
+- [ ] **Automated SMS & WhatsApp Guardian Alerts:** Integrated dispatch for daily unexplained absences via Twilio/Gupshup.
+- [ ] **Offline PWA Support:** Service worker synchronization allowing teachers to record daily attendance without active internet connectivity.
+- [ ] **Student Growth & Report Card Export:** PDF generation synthesizing term grades, attendance streaks, and strengths for parent-teacher conferences.
+- [ ] **Multi-School District Dashboard:** High-level comparative overview for educational departments managing multiple schools.
+- [ ] **Early Warning Signal Customization:** Institutional configuration panel to fine-tune rule weightings based on regional attendance guidelines.
 
-1. **Admin (`admin@udaan.demo`) — Dashboard.** 9 active students, attendance with its
-   denominator explained, 3 high-risk flags, and one overdue follow-up (Sneha).
-2. **Risk Monitoring.** Each flag lists its reasons and points; open *How the score
-   works* for the rule table. Review Aarav's flag with a note — *Awaiting review* drops.
-3. **Interventions.** Open Sneha's overdue case: the risk reasons from when it was
-   opened, the action plan and its history. Complete it with an outcome — her score
-   falls from 50 to 40 because the overdue rule no longer applies.
-4. **Academics.** Create an assessment for Grade 8 · A and enter marks; a score above
-   the maximum is rejected, and saving updates the students' risk straight away.
-5. **Attendance.** Take the register for a class; corrections show who recorded each
-   entry.
-6. **Teacher (`teacher@udaan.demo`).** Neha sees only her 4 assigned students, her own
-   dashboard and follow-ups, and no Staff page.
-7. **Staff (admin).** Add a staff account with a temporary password, or deactivate one —
-   that person is signed out on their next request.
+---
 
-## Privacy note
+## 🛡️ Privacy, Ethics & Data Governance
 
-This is a prototype. Use only fictional demo data. Do not load real student or
-guardian information or family meeting notes without institutional authorization
-and a privacy review. Meeting notes are visible to staff authorized to view that student.
+1. **Aid, Not a Verdict:** The Udaan risk indicator is a **prioritization aid** designed to help counselors identify who needs check-ins first. It is never an algorithmic prediction of student destiny and must never be used for punitive measures.
+2. **Explainability First:** Black-box machine learning models that generate risk scores without transparent reasoning are intentionally prohibited. Every single risk point must correlate with an observable educational event.
+3. **Data Minimization:** Sensitive support notes and parent meeting logs are strictly sequestered from dashboards and bulk exports, accessible only to authorized staff directly supervising that student.
+4. **Prototype Notice:** This platform is designed for demonstration and institutional evaluation. When deploying in live educational settings, ensure compliance with local student data privacy regulations (e.g., FERPA, GDPR, DPDP Act).
+
+---
+
+## 👥 Contributors & License
+
+### Project Contributor
+- **Aastha Musale** — Lead Architecture, Frontend Design & Fullstack Implementation
+
+### License
+This project is open-source and available under the **[MIT License](LICENSE)**.
+
+---
+
+<div align="center">
+  <sub>Built with care to ensure every student has the support they need to complete their education.</sub>
+</div>
