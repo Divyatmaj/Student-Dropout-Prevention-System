@@ -7,15 +7,24 @@ export default function SearchBar({
   placeholder = 'Search by name, student ID, roll number...',
   style = {},
 }) {
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape' && value) {
+      e.preventDefault();
+      onChange('');
+    }
+  };
+
   return (
     <div className="search-input-wrapper" style={style}>
-      <Search size={16} className="search-input-icon" />
+      <Search size={16} className="search-input-icon" aria-hidden="true" />
       <input
         type="text"
         className="search-input"
         placeholder={placeholder}
+        aria-label={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
       {value && (
         <button
@@ -35,7 +44,7 @@ export default function SearchBar({
           title="Clear search"
           aria-label="Clear search query"
         >
-          <X size={14} />
+          <X size={14} aria-hidden="true" />
         </button>
       )}
     </div>
