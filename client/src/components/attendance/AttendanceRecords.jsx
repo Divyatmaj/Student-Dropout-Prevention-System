@@ -164,6 +164,15 @@ export default function AttendanceRecords({ initialSearch = '', onChanged }) {
             onChange={(e) => setFilter('date', e.target.value)}
             aria-label="Filter by date"
           />
+          <Button
+            variant={filters.date === todayISO() ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setFilter('date', filters.date === todayISO() ? '' : todayISO())}
+            title={filters.date === todayISO() ? 'Clear today filter' : 'Filter records for today'}
+            aria-pressed={filters.date === todayISO()}
+          >
+            Today
+          </Button>
           <select className="filter-select" value={filters.grade} onChange={(e) => setFilter('grade', e.target.value)} aria-label="Filter by grade">
             <option value="">All grades</option>
             {GRADES.map((g) => <option key={g} value={g}>Grade {g}</option>)}
